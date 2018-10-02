@@ -1,0 +1,32 @@
+.TH DNS-EXPORT 1
+
+.SH NAME
+dns-export \- creates statistics of DNS trafficr
+
+.SH SYNOPSIS
+.B dns-export
+[\fB\-r\fR \ffile.pcap\fR]
+[\fB\-i\fR \finterface\fR]
+[\fB\-s\fR \fsyslog-server\fR]
+[\fB\-t\fR \fseconds\fR]
+
+.SH DESCRIPTION
+.B dns-export
+creates statistics of DNS traffic either from .pcap file or by listening to incoming traffic on given interface.
+
+.SH OPTIONS
+.TP
+.BR \-r \ffile.pcap\fR
+Processes specified .pcap file.
+
+.TP
+.BR \-i \finterface\fR
+Starts listening on specified interface for DNS traffic.
+
+.TP
+.BR \-s \fsyslog-server\fR
+Hostname/IPv4/IPv6 address of syslog server.
+
+.TP
+.BR \-t \fseconds\fR
+Specifies interval for statistics aggregation.

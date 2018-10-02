@@ -125,7 +125,7 @@ void ip_encaps( uint8_t *packet, uint16_t *packet_len )
     iph->ihl      = 5;
     iph->version  = 4;
     iph->tos      = 16; // Low delay
-    iph->id       = htons(create_random_number(UINT16_MAX));
+    //iph->id       = htons(create_random_number(UINT16_MAX));
     iph->ttl      = 255; // time to live (hops)
     iph->protocol = 17; // UDP protocol
 

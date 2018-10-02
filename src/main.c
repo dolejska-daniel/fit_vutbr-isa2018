@@ -3,6 +3,10 @@
 // ISA, 30.09.2018
 // Author: Daniel Dolejska, FIT
 
+#define DEBUG_PRINT_ENABLED
+#define DEBUG_LOG_ENABLED
+#define DEBUG_ERR_ENABLED
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -28,9 +32,142 @@
 #define BUFFER_SIZE 1500 // send and receive buffer size in bits
 #endif
 
+/**
+ *
+ * @param sock
+ * @param data
+ *
+ * @return
+ */
+ssize_t receive_data(int sock, uint8_t *data)
+{
+	ssize_t recv_bits = 0;
+	memset(data, 0, BUFFER_SIZE);
 
-void *begin_dhcp_starvation( void *interface_arg );
+	//  Receive offer
+	recv_bits = recvfrom(sock, data, BUFFER_SIZE, 0, NULL, NULL);
+	if (errno == EAGAIN || errno == EWOULDBLOCK)
+	{
+		//  Receive timeout
+		DEBUG_LOG("THREAD", "Response read timed out...");
+		//DEBUG_PRINT("\ttimed out after: %ds\n", SOCKET_TIMEOUT);
 
+		/*
+		if (retry_times < SOCKET_RETRY_COUNT)
+		{
+			DEBUG_LOG("THREAD", "Retrying...");
+			retry_times++;
+			send_request = 1;
+			DEBUG_PRINT("\ttry #%d\n", retry_times);
+			continue;
+		}
+		else
+		{
+			DEBUG_LOG("THREAD", "Tried too many times with no reply. Exiting.");
+			DEBUG_PRINT("\ttry count %d\n", SOCKET_RETRY_COUNT);
+			timed_out = 1;
+			break;
+		}
+		*/
+	}
+	else if (recv_bits < 0 || errno != 0)
+	{
+		//  Different error
+		perror("recvfrom");
+		//timed_out = 1;
+	}
+
+	return recv_bits;
+}
+
+/**
+ *
+ * @param interface
+ */
+void start_interface_listening( char *interface )
+{
+	DEBUG_LOG("PROCESS", "Starting listening...");
+
+	DEBUG_LOG("PROCESS", "Creating RAW socket...");
+	int sock;
+	//  Raw socket
+	if ((sock = socket(AF_PACKET, SOCK_RAW, htons(0x0800))) == -1)
+	{
+		perror("socket");
+		exit(EXIT_FAILURE);
+	}
+
+	DEBUG_LOG("PROCESS", "Getting interface ID...");
+	struct ifreq if_idx;
+	memset(&if_idx, 0, sizeof(struct ifreq));
+	strncpy(if_idx.ifr_name, interface, strlen(interface) + 1);
+	if (ioctl(sock, SIOCGIFINDEX, &if_idx) < 0)
+	{
+		perror("SIOCGIFINDEX");
+		exit(EXIT_FAILURE);
+	}
+
+
+	DEBUG_LOG("PROCESS", "Setting socket options...");
+	if (setsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, interface, strlen(interface) + 1) == -1)
+	{
+		perror("SO_BINDTODEVICE");
+		close(sock);
+		exit(EXIT_FAILURE);
+	}
+
+	int flag = 1;
+	if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)) == -1)
+	{
+		perror("SO_REUSEADDR");
+		close(sock);
+		exit(EXIT_FAILURE);
+	}
+
+	/*
+	DEBUG_LOG("PROCESS", "Creating socket destination address...");
+	//  Destination address
+	struct sockaddr_ll socket_dst;
+	//  Index of the network device
+	socket_dst.sll_ifindex = if_idx.ifr_ifindex;
+	//  Address length
+	socket_dst.sll_halen = ETH_ALEN;
+	//  Destination MAC (broadcast)
+	socket_dst.sll_addr[0] = 0xFF;
+	socket_dst.sll_addr[1] = 0xFF;
+	socket_dst.sll_addr[2] = 0xFF;
+	socket_dst.sll_addr[3] = 0xFF;
+	socket_dst.sll_addr[4] = 0xFF;
+	socket_dst.sll_addr[5] = 0xFF;*/
+
+    DEBUG_LOG("PROCESS", "Listening for transmissions...");
+	while (1)
+	{
+		static ssize_t recv_bits = 0;
+		static uint8_t recv_data[BUFFER_SIZE];
+		recv_bits = receive_data(sock, recv_data);
+
+        DEBUG_LOG("PROCESS", "Packet received...");
+        DEBUG_PRINT("packet_size: %ld\n", recv_bits);
+        printf(recv_data);
+
+        print_eth_header(get_eth_header(recv_data));
+		print_ip_header(get_ip_header(recv_data));
+        print_udp_header(get_udp_header(recv_data));
+
+		if (recv_bits < 0)
+		    break;
+	}
+}
+
+/**
+ * Main program function.
+ *
+ * @param argc
+ * @param argv
+ *
+ * @return
+ */
 int main(int argc, char **argv)
 {
 	DEBUG_LOG("MAIN", "Starting application...");
@@ -48,21 +185,26 @@ int main(int argc, char **argv)
 	-t : doba výpočtu statistik, výchozí hodnota 60s
 	 */
 
+	/*
 	if (argc != 3 || argv[1][0] != '-' || argv[1][1] != 'i' || strcmp(argv[2], "") == 0)
 	{
 		ERR("Invalid options specified.\nUsage: %s -i <interface>\n", argv[0]);
 		exit(EXIT_FAILURE);
 	}
 	char *interface = argv[2];
+	 */
+	char *interface = "wlp7s0";
 	DEBUG_PRINT("\tinterface: '%s'\n", interface);
 
-	begin_dhcp_starvation(interface);
+	start_interface_listening(interface);
 
 	DEBUG_LOG("MAIN", "Exiting program...");
 
-	exit(0);
+	exit(EXIT_SUCCESS);
 }
 
+
+/*
 void *begin_dhcp_starvation( void *interface_arg )
 {
 	DEBUG_LOG("THREAD", "Starting DHCP starvation...");
@@ -106,7 +248,7 @@ void *begin_dhcp_starvation( void *interface_arg )
 	}
 
 	struct timeval timeout;
-	timeout.tv_sec = SOCKET_TIMEOUT;
+	timeout.tv_sec = 2000; // SOCKET_TIMEOUT
 
 	if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(struct timeval)) == -1)
 	{
@@ -242,7 +384,8 @@ void *begin_dhcp_starvation( void *interface_arg )
 			print_udp_header(get_udp_header(recv_data));
 			print_dhcp_data(get_dhcp_data(recv_data));
 
-			if (dhcp_request_receive(recv_data, (uint16_t) recv_bits, data/*, data_len*/, BOOTREPLY, DHCPOFFER) == 0)
+			//if (dhcp_request_receive(recv_data, (uint16_t) recv_bits, data, data_len, BOOTREPLY, DHCPOFFER) == 0)
+            if (dhcp_request_receive(recv_data, (uint16_t) recv_bits, data, BOOTREPLY, DHCPOFFER) == 0)
 			{
 				DEBUG_LOG("THREAD", "Not valid DHCPOFFER packet...");
 				if ((int)(timer_elapsed(&started_at) / 1000 / SOCKET_TIMEOUT) > retry_times && retry_times < SOCKET_RETRY_COUNT)
@@ -354,7 +497,8 @@ void *begin_dhcp_starvation( void *interface_arg )
 				print_udp_header(get_udp_header(recv_data));
 				print_dhcp_data(get_dhcp_data(recv_data));
 
-				if (dhcp_request_receive(recv_data, (uint16_t) recv_bits, data/*, data_len*/, BOOTREPLY, DHCPACK) == 0)
+				//if (dhcp_request_receive(recv_data, (uint16_t) recv_bits, data, data_len, BOOTREPLY, DHCPACK) == 0)
+                if (dhcp_request_receive(recv_data, (uint16_t) recv_bits, data, BOOTREPLY, DHCPACK) == 0)
 				{
 					DEBUG_LOG("THREAD", "Not valid DHCPACK packet...");
 					if ((int)(timer_elapsed(&started_at) / 1000 / SOCKET_TIMEOUT) > retry_times && retry_times < SOCKET_RETRY_COUNT)
@@ -399,3 +543,4 @@ void *begin_dhcp_starvation( void *interface_arg )
 
 	return NULL;
 }
+ */
