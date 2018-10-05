@@ -27,6 +27,9 @@
 
 #include "network.h"
 #include "macros.h"
+#include "dns.h"
+
+#define DNS_PORT 53
 
 #ifndef BUFFER_SIZE
 #define BUFFER_SIZE 1500 // send and receive buffer size in bits
@@ -39,7 +42,7 @@
  *
  * @return
  */
-ssize_t receive_data(int sock, uint8_t *data)
+ssize_t receive_data( int sock, uint8_t *data )
 {
 	ssize_t recv_bits = 0;
 	memset(data, 0, BUFFER_SIZE);
@@ -107,7 +110,6 @@ void start_interface_listening( char *interface )
 		exit(EXIT_FAILURE);
 	}
 
-
 	DEBUG_LOG("PROCESS", "Setting socket options...");
 	if (setsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, interface, strlen(interface) + 1) == -1)
 	{
@@ -144,17 +146,26 @@ void start_interface_listening( char *interface )
 	while (1)
 	{
 		static ssize_t recv_bits = 0;
-		static uint8_t recv_data[BUFFER_SIZE];
+		uint8_t recv_data[BUFFER_SIZE] = {};
 		recv_bits = receive_data(sock, recv_data);
 
         DEBUG_LOG("PROCESS", "Packet received...");
-        DEBUG_PRINT("packet_size: %ld\n", recv_bits);
-        printf(recv_data);
 
-        print_eth_header(get_eth_header(recv_data));
-		print_ip_header(get_ip_header(recv_data));
-        print_udp_header(get_udp_header(recv_data));
+        UDPPacketPtr packet = parse_udp_packet(recv_data);
+        if (packet->udp_header->source == DNS_PORT)
+		{
+			DEBUG_LOG("PROCESS", "Packet destination: DNS PORT...");
+			DEBUG_PRINT("packet_size: %ld\n", recv_bits);
 
+
+			DNSPacketPtr dns = parse_dns_packet(packet);
+
+			print_dns_packet(dns);
+
+			destroy_dns_packet(dns);
+		}
+
+        destroy_udp_packet(packet);
 		if (recv_bits < 0)
 		    break;
 	}
@@ -193,7 +204,8 @@ int main(int argc, char **argv)
 	}
 	char *interface = argv[2];
 	 */
-	char *interface = "wlp7s0";
+	//char *interface = "enp0s3";
+	char *interface = "eth0";
 	DEBUG_PRINT("\tinterface: '%s'\n", interface);
 
 	start_interface_listening(interface);
