@@ -15,6 +15,7 @@
 #include <string.h>
 #include <errno.h>
 #include <sys/time.h>
+#include <signal.h>
 
 #include <arpa/inet.h>
 #include <linux/if_packet.h>
@@ -28,12 +29,30 @@
 #include "network.h"
 #include "macros.h"
 #include "dns.h"
+#include "ht.h"
 
 #define DNS_PORT 53
 
 #ifndef BUFFER_SIZE
 #define BUFFER_SIZE 1500 // send and receive buffer size in bits
 #endif
+
+
+void entry_processor( tKey key, tData data )
+{
+    fprintf(stdout, "%s %d\n",
+            key,
+            data);
+}
+
+void signal_handler( int signal )
+{
+	if (signal == SIGUSR1)
+	{
+	    fprintf(stdout, "RECEIVED SIGUSR1!!!!!\n");
+		//	TODO: Print statistics to stdout
+	}
+}
 
 /**
  *
@@ -52,32 +71,13 @@ ssize_t receive_data( int sock, uint8_t *data )
 	if (errno == EAGAIN || errno == EWOULDBLOCK)
 	{
 		//  Receive timeout
-		DEBUG_LOG("THREAD", "Response read timed out...");
-		//DEBUG_PRINT("\ttimed out after: %ds\n", SOCKET_TIMEOUT);
-
-		/*
-		if (retry_times < SOCKET_RETRY_COUNT)
-		{
-			DEBUG_LOG("THREAD", "Retrying...");
-			retry_times++;
-			send_request = 1;
-			DEBUG_PRINT("\ttry #%d\n", retry_times);
-			continue;
-		}
-		else
-		{
-			DEBUG_LOG("THREAD", "Tried too many times with no reply. Exiting.");
-			DEBUG_PRINT("\ttry count %d\n", SOCKET_RETRY_COUNT);
-			timed_out = 1;
-			break;
-		}
-		*/
+		DEBUG_LOG("PROCESS", "No waiting packets...");
+		recv_bits = 0;
 	}
 	else if (recv_bits < 0 || errno != 0)
 	{
 		//  Different error
 		perror("recvfrom");
-		//timed_out = 1;
 	}
 
 	return recv_bits;
@@ -111,7 +111,7 @@ void start_interface_listening( char *interface )
 	}
 
 	DEBUG_LOG("PROCESS", "Setting socket options...");
-	if (setsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, interface, strlen(interface) + 1) == -1)
+	if (setsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, interface, strlen(interface) + 1) < 0)
 	{
 		perror("SO_BINDTODEVICE");
 		close(sock);
@@ -119,12 +119,22 @@ void start_interface_listening( char *interface )
 	}
 
 	int flag = 1;
-	if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)) == -1)
+	if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)) < 0)
 	{
 		perror("SO_REUSEADDR");
 		close(sock);
 		exit(EXIT_FAILURE);
 	}
+
+    struct timeval timeout;
+    timeout.tv_sec = 10;
+    timeout.tv_usec = 0;
+    if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(struct timeval)) < 0)
+    {
+        perror("SO_RCVTIMEO");
+        close(sock);
+        exit(EXIT_FAILURE);
+    }
 
 	/*
 	DEBUG_LOG("PROCESS", "Creating socket destination address...");
@@ -142,40 +152,96 @@ void start_interface_listening( char *interface )
 	socket_dst.sll_addr[4] = 0xFF;
 	socket_dst.sll_addr[5] = 0xFF;*/
 
+	tHTable *entry_table = malloc(HTSIZE * sizeof(tHTItem));
+	htInit(entry_table);
+
+    struct timeval time_last, time_now;
+    gettimeofday(&time_last, NULL);
+
+    int send_interval = 15 * 1000;
+
     DEBUG_LOG("PROCESS", "Listening for transmissions...");
+
 	while (1)
 	{
 		static ssize_t recv_bits = 0;
-		uint8_t recv_data[BUFFER_SIZE] = {};
+		uint8_t recv_data[BUFFER_SIZE];
 		recv_bits = receive_data(sock, recv_data);
+        gettimeofday(&time_now, NULL);
 
-        DEBUG_LOG("PROCESS", "Packet received...");
+        double ms_diff = (time_now.tv_sec - time_last.tv_sec) * 1000.0;
+        ms_diff+= (time_now.tv_usec - time_last.tv_usec) / 1000.0;
 
-        UDPPacketPtr packet = parse_udp_packet(recv_data);
-        if (packet->udp_header->source == DNS_PORT)
-		{
-			DEBUG_LOG("PROCESS", "Packet destination: DNS PORT...");
-			DEBUG_PRINT("packet_size: %ld\n", recv_bits);
+        DEBUG_PRINT("s_diff: %f\n", ms_diff);
+        if (ms_diff > send_interval)
+        {
+            //  Send stats
+            DEBUG_LOG("PROCESS", "Sending statistics...");
 
+            printf("\33[2K\r");
+            fprintf(stdout, "CURRENT STATS:\n");
+            htWalk(entry_table, &entry_processor);
+            fprintf(stdout, "\n");
 
-			DNSPacketPtr dns = parse_dns_packet(packet);
+            DEBUG_LOG("PROCESS", "Resetting table...");
+            htClearAll(entry_table);
 
-			print_dns_packet(dns);
-			for (int i = 0; i < dns->answer_count; i++)
+            time_last = time_now;
+            if (recv_bits == 0)
+                continue;
+        }
+
+		if (recv_bits > 0)
+        {
+            DEBUG_LOG("PROCESS", "Packet received...");
+
+            //  Parse headers
+            UDPPacketPtr packet = parse_udp_packet(recv_data);
+            if (packet->udp_header->source == DNS_PORT)
             {
-                fprintf(stdout, "%s %d\n",
-                        dns->answers[i]->name,
-                        dns->answers[i]->record_type);
-                // dns->answers[i]->rdata
+                DEBUG_LOG("PROCESS", "Packet destination: DNS PORT...");
+                DEBUG_PRINT("packet_size: %ld\n", recv_bits);
+
+                //  Parse DNS part of the packet
+                DNSPacketPtr dns = parse_dns_packet(packet);
+
+                print_dns_packet(dns);
+                for (int i = 0; i < dns->answer_count; i++)
+                {
+                    DNSResourceRecordPtr record = dns->answers[i];
+
+                    char *data; translate_dns_data(record, &data);
+                    char *type = translate_dns_type(dns->answers[i]->record_type);
+
+                    size_t entry_length = strlen(record->name) + 1 + strlen(type) + 1 + strlen(data); // +1s for whitespaces
+                    char *entry = malloc(entry_length + 1); // +1 for '\0'
+                    sprintf(entry, "%s %s %s", record->name, type, data);
+
+                    unsigned int status = htIncrease(entry_table, entry);
+
+                    printf("\33[2K\r");
+                    fprintf(stdout, "%s +1", entry);
+                    fflush(stdout);
+
+                    //  Do not free created items, item key will be freed before cleaning the table
+                    if (status != ITEM_STATUS_CREATED)
+                        //  Free entry for updated item
+                        free(entry);
+
+                    //  Free translated DNS data
+                    free(data);
+                }
+
+                destroy_dns_packet(dns);
             }
 
-			destroy_dns_packet(dns);
-		}
-
-        destroy_udp_packet(packet);
-		if (recv_bits < 0)
+            destroy_udp_packet(packet);
+        }
+        else if (recv_bits < 0)
 		    break;
 	}
+
+	free(entry_table);
 }
 
 /**
@@ -214,10 +280,16 @@ int main(int argc, char **argv)
 	char *interface = "wlp7s0";
 	DEBUG_PRINT("\tinterface: '%s'\n", interface);
 
-	start_interface_listening(interface);
+	//	Setup signal capture
+	signal(SIGUSR1, signal_handler);
+
+	if (1) //	TODO: If listening
+	{
+		//	Start listening
+		start_interface_listening(interface);
+	}
 
 	DEBUG_LOG("MAIN", "Exiting program...");
-
 	exit(EXIT_SUCCESS);
 }
 
@@ -261,16 +333,6 @@ void *begin_dhcp_starvation( void *interface_arg )
 	if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)) == -1)
 	{
 		perror("SO_REUSEADDR");
-		close(sock);
-		exit(EXIT_FAILURE);
-	}
-
-	struct timeval timeout;
-	timeout.tv_sec = 2000; // SOCKET_TIMEOUT
-
-	if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(struct timeval)) == -1)
-	{
-		perror("SO_RCVTIMEO");
 		close(sock);
 		exit(EXIT_FAILURE);
 	}

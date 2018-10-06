@@ -70,6 +70,7 @@
 #define DNS_CLASS_NONE	254	///< None
 #define DNS_CLASS_ANY	255	///< Any
 
+
 /**
  * Struktura reprezentujici DNS dotaz.
  */
@@ -99,8 +100,8 @@ typedef struct dns_rr* DNSResourceRecordPtr;
  * Struktura reprezentujici DNS packet.
  */
 struct dns_packet {
-	uint16_t	transaction_id;
-	uint16_t	flags;
+	uint16_t	transaction_id; ///< ID Transakce
+	uint16_t	flags;          ///< Stavy odpovedi
 
 	uint16_t	question_count;		///< Number of entries in the question list that were returned.
 	uint16_t	answer_count;		///< Number of entries in the answer resource record list that were returned.
@@ -115,6 +116,32 @@ struct dns_packet {
 typedef struct dns_packet  DNSPacket;
 typedef struct dns_packet* DNSPacketPtr;
 
+/**
+ * Struktura reprezentujici
+ */
+struct dns_rtype {
+    uint16_t    type;       ///< Unikatni identifikator typu
+    char        *string;    ///< Nazev typu
+};
+typedef struct dns_rtype DNSRecordType;
+
+/**
+ * Prelozi unikatni identifiktar typu DNS zaznamu do textove podoby.
+ * Zadna dynamicka alokace neprobiha.
+ *
+ * @param type
+ * @return
+ */
+char *translate_dns_type( uint16_t type );
+
+/**
+ * Prelozi data DNS odpovedi do odpovidajici podoby a ulozi jej do znakoveho
+ * retezce, ktery dynamicky alokuje.
+ *
+ * @param record
+ * @param data
+ */
+void translate_dns_data( DNSResourceRecordPtr record, char **data );
 
 /**
  * Prekopiruje znakovy retezec z daneho offsetu (offset) dane DNS odpovedi

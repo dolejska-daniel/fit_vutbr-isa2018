@@ -19,6 +19,100 @@
 #include "dns.h"
 
 
+char *translate_dns_type( uint16_t type ) {
+	static DNSRecordType types[] = {
+			//	List from: https://en.wikipedia.org/wiki/List_of_DNS_record_types#Resource_records
+			{ 1,	"A" }, // Address record
+			{ 28,	"AAAA" }, // IPv6 address record
+			{ 18,	"AFSDB" }, // AFS database record
+			{ 42,	"APL" }, // Address Prefix List
+			{ 257,	"CAA" }, // Certification Authority Authorization
+			{ 60,	"CDNSKEY" }, //
+			{ 59,	"CDS" }, // Child DS
+			{ 37,	"CERT" }, // Certificate record
+			{ 5,	"CNAME" }, // Canonical name record
+			{ 49,	"DHCID" }, // DHCP identifier
+			{ 32769,"DLV" }, // DNSSEC Lookaside Validation record
+			{ 39,	"DNAME" }, //
+			{ 48,	"DNSKEY" }, // DNS Key record
+			{ 43,	"DS" }, // Delegation signer
+			{ 55,	"HIP" }, // Host Identity Protocol
+			{ 45,	"IPSECKEY" }, // IPsec Key
+			{ 25,	"KEY" }, // Key record
+			{ 36,	"KX" }, // Key Exchanger record
+			{ 29,	"LOC" }, // Location record
+			{ 15,	"MX" }, // Mail exchange record
+			{ 35,	"NAPTR" }, // Naming Authority Pointer
+			{ 2,	"NS" }, // Name server record
+			{ 47,	"NSEC" }, // Next Secure record
+			{ 50,	"NSEC3" }, // Next Secure record version 3
+			{ 51,	"NSEC3PARAM" }, // NSEC3 parameters
+			{ 61,	"OPENPGPKEY" }, // OpenPGP public key record
+			{ 12,	"PTR" }, // Pointer record
+			{ 46,	"RRSIG" }, // DNSSEC signature
+			{ 17,	"RP" }, // Responsible Person
+			{ 24,	"SIG" }, // Signature
+			{ 6,	"SOA" }, // Start of [a zone of] authority record
+			{ 33,	"SRV" }, // Service locator
+			{ 44,	"SSHFP" }, // SSH Public Key Fingerprint
+			{ 32768,"TA" }, // DNSSEC Trust Authorities
+			{ 249,	"TKEY" }, // Transaction Key record
+			{ 52,	"TLSA" }, // TLSA certificate association
+			{ 250,	"TSIG" }, // Transaction Signature
+			{ 16,	"TXT" }, // Text record
+			{ 256,	"URI" }, // Uniform Resource Identifier
+			//	List from: https://en.wikipedia.org/wiki/List_of_DNS_record_types#Other_types_and_pseudo_resource_records
+			{ 255,	"*" }, // All cached records
+			{ 252,	"AXFR" }, // Authoritative Zone Transfer
+			{ 251,	"IXFR" }, // Incremental Zone Transfer
+			{ 41,	"OPT" } // Option
+	};
+
+	for (int i = 0; i < 42; i++)
+		if (types[i].type == type)
+			return types[i].string;
+
+	return "|?|";
+}
+
+void translate_dns_data( DNSResourceRecordPtr record, char **data )
+{
+	uint16_t len;
+	switch (record->record_type)
+	{
+		case DNS_TYPE_A:
+			*data = malloc(16);
+			sprintf(*data, "%hu.%hu.%hu.%hu",
+					record->rdata[0],
+					record->rdata[1],
+					record->rdata[2],
+					record->rdata[3]);
+			break;
+		case DNS_TYPE_AAAA:
+			*data = malloc(6);
+			sprintf(*data, "IPV6!");
+			break;
+		default:
+			if (record->rdata_length)
+			{
+				len = strlen((char *) record->rdata) + 1; // +1 because of '\0'
+				*data = malloc(len);
+				for(int i = 0; i < len; i++)
+					(*data)[i] = record->rdata[i];
+
+				//memcpy(data, record->rdata, len);
+			}
+			else
+			{
+				*data = malloc(4);
+				(*data)[0] = '|';
+				(*data)[1] = '?';
+				(*data)[2] = '|';
+				(*data)[3] = '\0';
+			}
+	}
+}
+
 void load_dns_string( char **destination, UDPPacketPtr packet, uint16_t *offset_ptr, uint16_t size, uint16_t *length_ptr )
 {
 	assert(destination != NULL);
@@ -218,13 +312,17 @@ DNSResourceRecordPtr parse_dns_packet_resource_record( UDPPacketPtr udp_packet )
 		|| record->record_type == DNS_TYPE_CNAME)
 	{
 		DEBUG_LOG("DNS-RECORD-PARSE", "Loading rdata by load_dns_string...");
+		name_length = 0;
 		load_dns_string((char **) &record->rdata, udp_packet, &udp_packet->offset, record->rdata_length, &name_length);
+        DEBUG_PRINT("current contents: ");
+        for (int i = 0; i < record->rdata_length; i++)
+            DEBUG_PRINT("%#02x ", record->rdata[i]);
+        DEBUG_PRINT("\n");
 	}
 	else
 	{
 		for (int i = 0; i < record->rdata_length; i++)
 			record->rdata[i] = (udp_packet->data + udp_packet->offset)[i];
-        //memcpy(&record->rdata, udp_packet->data + udp_packet->offset, record->rdata_length * sizeof(uint8_t)); // 	FIXME: KOKOTINA ROZMRDÁVÁ STRINGY
         udp_packet->offset+= record->rdata_length * sizeof(uint8_t);
 	}
 
@@ -332,7 +430,7 @@ void print_dns_packet_query( DNSQueryPtr query )
 	fprintf(
 			stderr, "DNS_PACKET_QUERY: {\n\tname\t%s\n\ttype\t%d (%s)\n\tclass\t%#x (%s)\n}\n",
 			query->name,
-			query->record_type, "-",
+			query->record_type, translate_dns_type(query->record_type),
 			query->record_class, "-"
 	);
 #endif
@@ -344,7 +442,7 @@ void print_dns_packet_resource_record( DNSResourceRecordPtr record )
 	fprintf(
 			stderr, "DNS_PACKET_RESOURCE_RECORD: {\n\tname\t%s\n\ttype\t%d (%s)\n\tclass\t%#x (%s)\n\tttl\t%d\n\trdata_length\t%d\n}\n",
 			record->name,
-			record->record_type, "-",
+			record->record_type, translate_dns_type(record->record_type),
 			record->record_class, "-",
 			record->ttl,
 			record->rdata_length
