@@ -161,6 +161,13 @@ void start_interface_listening( char *interface )
 			DNSPacketPtr dns = parse_dns_packet(packet);
 
 			print_dns_packet(dns);
+			for (int i = 0; i < dns->answer_count; i++)
+            {
+                fprintf(stdout, "%s %d\n",
+                        dns->answers[i]->name,
+                        dns->answers[i]->record_type);
+                // dns->answers[i]->rdata
+            }
 
 			destroy_dns_packet(dns);
 		}
@@ -204,8 +211,7 @@ int main(int argc, char **argv)
 	}
 	char *interface = argv[2];
 	 */
-	//char *interface = "enp0s3";
-	char *interface = "eth0";
+	char *interface = "wlp7s0";
 	DEBUG_PRINT("\tinterface: '%s'\n", interface);
 
 	start_interface_listening(interface);

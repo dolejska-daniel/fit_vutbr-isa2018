@@ -112,7 +112,7 @@ void print_eth_header_struct( const struct ethhdr *eh )
 {
 #ifdef DEBUG_PRINT_ENABLED
     fprintf(
-            stderr, "ETH_HEADER (size: %ld [+4 checksum]): {\n\th_source\t%02x:%02x:%02x:%02x:%02x:%02x\n\th_dest\t\t%02x:%02x:%02x:%02x:%02x:%02x\n\th_proto\t\t%04#x\n}\n",
+            stderr, "ETH_HEADER (size: %ld [+4 checksum]): {\n\th_source\t%02x:%02x:%02x:%02x:%02x:%02x\n\th_dest\t\t%02x:%02x:%02x:%02x:%02x:%02x\n\th_proto\t\t%#04x\n}\n",
             get_eth_header_size(),
             eh->h_source[0], eh->h_source[1], eh->h_source[2], eh->h_source[3], eh->h_source[4], eh->h_source[5],
             eh->h_dest[0], eh->h_dest[1], eh->h_dest[2], eh->h_dest[3], eh->h_dest[4], eh->h_dest[5],

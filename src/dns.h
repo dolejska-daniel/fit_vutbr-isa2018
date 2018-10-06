@@ -15,7 +15,7 @@
 #define GET_DNS_FLAG_VALUE1B(flag, offset) (((flag) & (0b1 << offset)) >> offset)
 #define GET_DNS_FLAG_VALUE4B(flag, offset) (((flag) & (0b1111 << offset)) >> offset)
 
-#define DNS_RECURSION_MASK		(0b11 << 14)	///< String recursion mask
+#define DNS_RECURSION_MASK		(0b11 << 6)	///< String recursion mask
 
 #define DNS_FLAG_QR				15	///< Offset
 #define DNS_FLAG_QR_QUERY		0	///< Query
@@ -116,8 +116,24 @@ typedef struct dns_packet  DNSPacket;
 typedef struct dns_packet* DNSPacketPtr;
 
 
-void load_dns_string( char **destination, void *source, uint16_t *offset );
+/**
+ * Prekopiruje znakovy retezec z daneho offsetu (offset) dane DNS odpovedi
+ * (packet) do predem alokovane promenne (destination) velikosti (size). Delku
+ * nacteneho retezce vrati v promenne length_ptr.
+ *
+ * @param destination
+ * @param packet
+ * @param offset
+ * @param size
+ * @param length_ptr
+ */
+void load_dns_string( char **destination, UDPPacketPtr packet, uint16_t *offset, uint16_t size, uint16_t *length_ptr );
 
+/**
+ * Ziska velikost "uvodni" (pred queries, answers, ...) casti DNS packetu.
+ *
+ * @return
+ */
 size_t get_dns_packet_head_size();
 
 /**
