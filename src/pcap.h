@@ -11,6 +11,8 @@
 
 
 /**
+ * Struktura globalni hlavicky souboru.
+ *
  * @link https://wiki.wireshark.org/Development/LibpcapFileFormat#Global_Header
  */
 struct pcap_hdr_s {
@@ -26,6 +28,8 @@ typedef struct pcap_hdr_s  PcapGlobalHeader;
 typedef struct pcap_hdr_s *PcapGlobalHeaderPtr;
 
 /**
+ * Struktura hlavicky kazdeho packetu v souboru.
+ *
  * @link https://wiki.wireshark.org/Development/LibpcapFileFormat#Record_.28Packet.29_Header
  */
 struct pcaprec_hdr_s {
@@ -37,6 +41,9 @@ struct pcaprec_hdr_s {
 typedef struct pcaprec_hdr_s  PcapPacketHeader;
 typedef struct pcaprec_hdr_s *PcapPacketHeaderPtr;
 
+/**
+ * Struktura reprezentujici jednotlive packety v souboru.
+ */
 struct pcap_packet {
     PcapPacketHeader header; ///< packet header
     uint8_t          *data;  ///< packet data
@@ -44,6 +51,9 @@ struct pcap_packet {
 typedef struct pcap_packet  PcapPacket;
 typedef struct pcap_packet *PcapPacketPtr;
 
+/**
+ * Struktura reprezentujici .pcap soubor.
+ */
 struct pcap_file {
     FILE             *fd;			///< file descriptor
     PcapGlobalHeader header;		///< global file header
@@ -56,16 +66,43 @@ typedef struct pcap_file PcapFile;
 typedef struct pcap_file *PcapFilePtr;
 
 
+/**
+ *
+ * @param filepath
+ * @return PcapFilePtr|NULL
+ */
 PcapFilePtr pcap_file_open(char *filepath);
 
+/**
+ *
+ * @param file
+ */
 void pcap_file_close(PcapFilePtr file);
 
+/**
+ *
+ * @param file
+ * @return exit status
+ */
 int pcap_file_process(PcapFilePtr file);
 
+/**
+ *
+ * @param file
+ * @param cb
+ */
 void pcap_file_foreach(PcapFilePtr file, void (*cb)(PcapPacketPtr));
 
+/**
+ *
+ * @return PcapPacketPtr|NULL
+ */
 PcapPacketPtr pcap_packet_parseNext(PcapFilePtr);
 
+/**
+ *
+ * @param packet
+ */
 void pcap_packet_destroy(PcapPacketPtr packet);
 
 #endif //_PCAP_H

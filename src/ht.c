@@ -49,7 +49,7 @@ void htInsert ( tHTable* ptrht, tKey key, tData data )
 
 	int hash = hashCode(key);
 	tHTItem *nextItem = (*ptrht)[hash];
-	item = (tHTItem *) malloc(sizeof(tHTItem));
+	item = malloc(sizeof(tHTItem));
 	item->key = key;
 	item->data = data;
 	item->ptrnext = nextItem;

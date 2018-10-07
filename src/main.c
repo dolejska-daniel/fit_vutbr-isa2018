@@ -13,261 +13,22 @@
 #include <unistd.h>
 #include <time.h>
 #include <string.h>
-#include <errno.h>
-#include <sys/time.h>
 #include <signal.h>
 
 #include <arpa/inet.h>
-#include <linux/if_packet.h>
-#include <net/if.h>
-#include <sys/ioctl.h>
-#include <sys/socket.h>
-#include <netinet/ether.h>
-#include <netinet/ip.h>
-#include <netinet/udp.h>
+#include <ctype.h>
 
+#include "main.h"
+#include "process.h"
 #include "network.h"
 #include "macros.h"
-#include "dns.h"
 #include "ht.h"
 #include "pcap.h"
 
-#define DNS_PORT 53
-
-#ifndef BUFFER_SIZE
-#define BUFFER_SIZE 1500 // send and receive buffer size in bits
-#endif
-
 
 tHTable *entry_table;
+uint8_t flags = 0b00000000;
 
-
-void entry_processor( tKey key, tData data )
-{
-    fprintf(stdout, "%s %d\n",
-            key,
-            data);
-}
-
-void signal_handler( int signal )
-{
-	if (signal == SIGUSR1)
-	{
-	    fprintf(stdout, "RECEIVED SIGUSR1!!!!!\n");
-		//	TODO: Print statistics to stdout
-	}
-}
-
-void log_dns_traffic( DNSPacketPtr dns )
-{
-	for (int i = 0; i < dns->answer_count; i++)
-	{
-		DNSResourceRecordPtr record = dns->answers[i];
-
-		char *data; translate_dns_data(record, &data);
-		char *type = translate_dns_type(dns->answers[i]->record_type);
-
-		size_t entry_length = strlen(record->name) + 1 + strlen(type) + 1 + strlen(data); // +1s for whitespaces
-		char *entry = malloc(entry_length + 1); // +1 for '\0'
-		sprintf(entry, "%s %s %s", record->name, type, data);
-
-		printf("\33[2K\r");
-		fprintf(stdout, "%s +1", entry);
-		fflush(stdout);
-
-		//  Do not free created items, item key will be freed before cleaning the table
-		if (htIncrease(entry_table, entry) != ITEM_STATUS_CREATED)
-			//  Free entry for *UPDATED* item
-			free(entry);
-
-		//  Free translated DNS data
-		free(data);
-	}
-}
-
-/**
- *
- * @param sock
- * @param data
- *
- * @return
- */
-ssize_t receive_data( int sock, uint8_t *data )
-{
-	ssize_t recv_bits = 0;
-	memset(data, 0, BUFFER_SIZE);
-
-	//  Receive offer
-	recv_bits = recvfrom(sock, data, BUFFER_SIZE, 0, NULL, NULL);
-	if (errno == EAGAIN || errno == EWOULDBLOCK)
-	{
-		//  Receive timeout
-		DEBUG_LOG("PROCESS", "No waiting packets...");
-		recv_bits = 0;
-	}
-	else if (recv_bits < 0 || errno != 0)
-	{
-		//  Different error
-		perror("recvfrom");
-	}
-
-	return recv_bits;
-}
-
-/**
- *
- * @pre entry_table is allocated and initialized
- *
- * @param interface
- * @return exit status
- */
-int start_interface_listening( char *interface )
-{
-	DEBUG_LOG("PROCESS", "Starting listening...");
-
-	DEBUG_LOG("PROCESS", "Creating RAW socket...");
-	int sock;
-	//  Raw socket
-	if ((sock = socket(AF_PACKET, SOCK_RAW, htons(0x0800))) == -1)
-	{
-		perror("socket");
-		return EXIT_FAILURE;
-	}
-
-	DEBUG_LOG("PROCESS", "Getting interface ID...");
-	struct ifreq if_idx;
-	memset(&if_idx, 0, sizeof(struct ifreq));
-	strncpy(if_idx.ifr_name, interface, strlen(interface) + 1);
-	if (ioctl(sock, SIOCGIFINDEX, &if_idx) < 0)
-	{
-		perror("SIOCGIFINDEX");
-		return EXIT_FAILURE;
-	}
-
-	DEBUG_LOG("PROCESS", "Setting socket options...");
-	if (setsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, interface, strlen(interface) + 1) < 0)
-	{
-		perror("SO_BINDTODEVICE");
-		close(sock);
-		return EXIT_FAILURE;
-	}
-
-	int flag = 1;
-	if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)) < 0)
-	{
-		perror("SO_REUSEADDR");
-		close(sock);
-		return EXIT_FAILURE;
-	}
-
-    struct timeval timeout;
-    timeout.tv_sec = 10;
-    timeout.tv_usec = 0;
-    if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(struct timeval)) < 0)
-    {
-        perror("SO_RCVTIMEO");
-        close(sock);
-		return EXIT_FAILURE;
-    }
-
-	/*
-	DEBUG_LOG("PROCESS", "Creating socket destination address...");
-	//  Destination address
-	struct sockaddr_ll socket_dst;
-	//  Index of the network device
-	socket_dst.sll_ifindex = if_idx.ifr_ifindex;
-	//  Address length
-	socket_dst.sll_halen = ETH_ALEN;
-	//  Destination MAC (broadcast)
-	socket_dst.sll_addr[0] = 0xFF;
-	socket_dst.sll_addr[1] = 0xFF;
-	socket_dst.sll_addr[2] = 0xFF;
-	socket_dst.sll_addr[3] = 0xFF;
-	socket_dst.sll_addr[4] = 0xFF;
-	socket_dst.sll_addr[5] = 0xFF;*/
-
-    struct timeval time_last, time_now;
-    gettimeofday(&time_last, NULL);
-
-    int send_interval = 15 * 1000;
-
-    DEBUG_LOG("PROCESS", "Listening for transmissions...");
-
-	while (1)
-	{
-		static ssize_t recv_bits = 0;
-		uint8_t recv_data[BUFFER_SIZE];
-		recv_bits = receive_data(sock, recv_data);
-        gettimeofday(&time_now, NULL);
-
-        double ms_diff = (time_now.tv_sec - time_last.tv_sec) * 1000.0;
-        ms_diff+= (time_now.tv_usec - time_last.tv_usec) / 1000.0;
-
-        DEBUG_PRINT("s_diff: %f\n", ms_diff);
-        if (ms_diff > send_interval)
-        {
-            //  Send stats
-            DEBUG_LOG("PROCESS", "Sending statistics...");
-
-            printf("\33[2K\r");
-            fprintf(stdout, "CURRENT STATS:\n");
-            htWalk(entry_table, &entry_processor);
-            fprintf(stdout, "\n");
-
-            DEBUG_LOG("PROCESS", "Resetting table...");
-            htClearAll(entry_table);
-
-            time_last = time_now;
-            if (recv_bits == 0)
-                continue;
-        }
-
-		if (recv_bits > 0)
-        {
-			//	Something has been received
-            DEBUG_LOG("PROCESS", "Packet received...");
-
-            //  Parse headers
-            UDPPacketPtr packet = parse_udp_packet(recv_data);
-            if (packet == NULL)
-			{
-				ERR("Failed to process packet, application is unable to continue and will now exit.\n");
-				//	TODO: Rather return than continue;?
-				return EXIT_FAILURE;
-			}
-
-            if (packet->udp_header->source == DNS_PORT)
-            {
-                DEBUG_LOG("PROCESS", "Packet destination: DNS PORT...");
-                DEBUG_PRINT("packet_size: %ld\n", recv_bits);
-
-                //  Parse DNS part of the packet
-                DNSPacketPtr dns = parse_dns_packet(packet);
-				if (dns == NULL)
-				{
-					ERR("Failed to process DNS packet, application is unable to continue and will now exit.\n");
-					//	TODO: Rather return than continue;?
-					return EXIT_FAILURE;
-				}
-
-                print_dns_packet(dns);
-
-				//	Log traffic somehow
-				log_dns_traffic(dns);
-
-				//	DNS packet is no longer needed
-                destroy_dns_packet(dns);
-            }
-
-            //	UDP packet is no longer needed
-            destroy_udp_packet(packet);
-        }
-        else if (recv_bits < 0)
-		    break;
-	}
-
-	return EXIT_SUCCESS;
-}
 
 /**
  * Main program function.
@@ -279,16 +40,106 @@ int start_interface_listening( char *interface )
  */
 int main(int argc, char **argv)
 {
-	DEBUG_LOG("MAIN", "Starting application...");
-	int status = EXIT_SUCCESS;
-	//  inicializace
+	DEBUG_LOG("MAIN", "Processing options...");
+	/* Spuštění aplikace
+	dns-export [-r file.pcap] [-i interface] [-s syslog-server] [-t seconds]
 
-	PcapFilePtr file = pcap_file_open("./test5.pcap");
-	if (file == NULL)
+	-r : zpracuje daný pcap soubor
+	-i : naslouchá na daném síťovém rozhraní a zpracovává DNS provoz
+	-s : hostname/ipv4/ipv6 adresa syslog serveru
+	-t : doba výpočtu statistik, výchozí hodnota 60s
+	 */
+	char *filepath = NULL;
+	char *interface = NULL;
+	char *server = NULL;
+	char *time = "60";
+	uint32_t time_interval = 0;
+
+	int c;
+	while ((c = getopt(argc, argv, "r:i:s:t:")) != -1)
 	{
-		ERR("Failed to open specified file. Application will now exit.\n");
+		switch (c)
+		{
+			/** zpracuje daný pcap soubor */
+			case 'r':
+				if (IS_FLAG_ACTIVE(FLAG_INTERFACE))
+				{
+					//  Interface flag is already active, cannot use read flag
+					ERR("Option -i is already active! You cannot use option -r and -i together.\n");
+					exit(EXIT_FAILURE);
+				}
+
+				SET_FLAG_ACTIVE(FLAG_READ);
+				filepath = optarg;
+
+				break;
+
+			/** naslouchá na daném síťovém rozhraní a zpracovává DNS provoz */
+			case 'i':
+				if (IS_FLAG_ACTIVE(FLAG_READ))
+				{
+					//  Read flag is already active, cannot use interface flag
+					ERR("Option -r is already active! You cannot use option -r and -i together.\n");
+					exit(EXIT_FAILURE);
+				}
+
+				SET_FLAG_ACTIVE(FLAG_INTERFACE);
+				interface = optarg;
+				break;
+
+			/** hostname/ipv4/ipv6 adresa syslog serveru */
+			case 's':
+				SET_FLAG_ACTIVE(FLAG_SERVER);
+				server = optarg;
+
+				break;
+
+			/** doba výpočtu statistik, výchozí hodnota 60s */
+			case 't':
+				SET_FLAG_ACTIVE(FLAG_TIME);
+				time = optarg;
+
+				break;
+
+			case '?':
+				if (optopt == 'r' || optopt == 'i' || optopt == 's' || optopt == 't')
+					ERR("Option -%c requires an argument.\n", optopt);
+				else if (isprint(optopt))
+					ERR("Unknown option `-%c'.\n", optopt);
+				else
+					ERR("Unknown option character `\\x%x'.\n", optopt);
+				exit(EXIT_FAILURE);
+			default:
+				ERR("Failed to process options.\n");
+				exit(EXIT_FAILURE);
+		}
+	}
+
+	if (flags == 0)
+	{
+		ERR("Usage: dns-export [-r <file.pcap>] | [-i <interface>] [-s <syslog-server>] [-t <interval_s>]\n");
 		exit(EXIT_FAILURE);
 	}
+	else if (IS_FLAG_ACTIVE(FLAG_READ) == 0 && IS_FLAG_ACTIVE(FLAG_INTERFACE) == 0)
+	{
+		ERR("Either -r or -i option must be present.\n");
+		exit(EXIT_FAILURE);
+	}
+
+	char *err;
+	time_interval = (uint32_t) strtoul(time, &err, 10);
+	if (strlen(err))
+	{
+		DEBUG_PRINT("time: '%s'\nerr: '%s'\n", time, err);
+		ERR("Argument for option -t is invalid. Unsigned long is expected.\n");
+		exit(EXIT_FAILURE);
+	}
+
+	DEBUG_PRINT("Using following arguments:\n\t-r: '%s'\n\t-i: '%s'\n\t-s: '%s'\n\t-t: %u\n",
+			filepath, interface, server, time_interval);
+
+	DEBUG_LOG("MAIN", "Starting application...");
+	int status = EXIT_SUCCESS;
 
 	entry_table = malloc(HTSIZE * sizeof(tHTItem));
 	if (entry_table == NULL)
@@ -299,63 +150,51 @@ int main(int argc, char **argv)
 	}
 	htInit(entry_table);
 
-	UDPPacketPtr packet = parse_udp_packet(file->packets[0]->data);
-
-	print_eth_header(packet);
-	print_ip_header(packet);
-	print_udp_header(packet);
-
-	DNSPacketPtr dns = parse_dns_packet(packet);
-
-	print_dns_packet(dns);
-
-	destroy_dns_packet(dns);
-
-	destroy_udp_packet(packet);
-
-	pcap_file_close(file);
-
-	DEBUG_LOG("MAIN", "Exiting...");
-	exit(EXIT_SUCCESS);
-
-	DEBUG_LOG("MAIN", "Processing options...");
-	//  zpracování přepínačů
-
-	/* Spuštění aplikace
-	dns-export [-r file.pcap] [-i interface] [-s syslog-server] [-t seconds]
-
-	-r : zpracuje daný pcap soubor
-	-i : naslouchá na daném síťovém rozhraní a zpracovává DNS provoz
-	-s : hostname/ipv4/ipv6 adresa syslog serveru
-	-t : doba výpočtu statistik, výchozí hodnota 60s
-	 */
-
-	/*
-	if (argc != 3 || argv[1][0] != '-' || argv[1][1] != 'i' || strcmp(argv[2], "") == 0)
-	{
-		ERR("Invalid options specified.\nUsage: %s -i <interface>\n", argv[0]);
-		exit(EXIT_FAILURE);
-	}
-	char *interface = argv[2];
-	 */
-	char *interface = "wlp7s0";
-	DEBUG_PRINT("\tinterface: '%s'\n", interface);
-
 	//	Setup signal capture
 	signal(SIGUSR1, signal_handler);
 
-	if (1) //	TODO: If listening
+	if (IS_FLAG_ACTIVE(FLAG_INTERFACE))
 	{
-		//	Start listening
-		status = start_interface_listening(interface);
+		//	Start listening on interface
+		status = start_interface_listening(interface, time_interval);
+	}
+	else if (IS_FLAG_ACTIVE(FLAG_READ))
+	{
+		//  Start parsing file
+		PcapFilePtr file = pcap_file_open(filepath);
+		if (file == NULL)
+		{
+			ERR("Failed to open specified file, application is unable to continue and will now exit.\n");
+			exit(EXIT_FAILURE);
+		}
+
+		status = start_file_processing(file, time_interval);
+		pcap_file_close(file);
 	}
 
 	DEBUG_LOG("MAIN", "Cleaning up...");
-	pcap_file_close(file);
+	htClearAll(entry_table);
 	free(entry_table);
 
 	DEBUG_LOG("MAIN", "Exiting program...");
 	exit(status);
+}
+
+void signal_handler( int signal )
+{
+	if (signal == SIGUSR1)
+	{
+		fprintf(stdout, "RECEIVED SIGUSR1!!!!!\n");
+		//	TODO: Print statistics to stdout
+	}
+}
+
+
+void entry_processor( tKey key, tData data )
+{
+	fprintf(stdout, "%s %d\n",
+	        key,
+	        data);
 }
 
 

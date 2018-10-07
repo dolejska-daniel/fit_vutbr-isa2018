@@ -9,21 +9,18 @@ set(SOURCES
 	src/network.c
 	src/dns.c
 	src/ht.c
-        src/pcap.c src/pcap.h)
+	src/pcap.c
+	src/process.c
+	)
 
 set(INCLUDES
+	src/main.h
 	src/macros.h
 	src/network.h
 	src/dns.h
 	src/ht.h
-
-	# Libraries
-	#src/pcap.h
+	src/pcap.h
+	src/process.h
 	)
 
-include(GNUInstallDirs)
-
 add_executable(dns-export ${SOURCES} ${INCLUDES})
-
-#target_link_libraries(dns-export ${CMAKE_SOURCE_DIR}/lib/libpcap.a)
-
