@@ -30,12 +30,16 @@
 #include "macros.h"
 #include "dns.h"
 #include "ht.h"
+#include "pcap.h"
 
 #define DNS_PORT 53
 
 #ifndef BUFFER_SIZE
 #define BUFFER_SIZE 1500 // send and receive buffer size in bits
 #endif
+
+
+tHTable *entry_table;
 
 
 void entry_processor( tKey key, tData data )
@@ -51,6 +55,33 @@ void signal_handler( int signal )
 	{
 	    fprintf(stdout, "RECEIVED SIGUSR1!!!!!\n");
 		//	TODO: Print statistics to stdout
+	}
+}
+
+void log_dns_traffic( DNSPacketPtr dns )
+{
+	for (int i = 0; i < dns->answer_count; i++)
+	{
+		DNSResourceRecordPtr record = dns->answers[i];
+
+		char *data; translate_dns_data(record, &data);
+		char *type = translate_dns_type(dns->answers[i]->record_type);
+
+		size_t entry_length = strlen(record->name) + 1 + strlen(type) + 1 + strlen(data); // +1s for whitespaces
+		char *entry = malloc(entry_length + 1); // +1 for '\0'
+		sprintf(entry, "%s %s %s", record->name, type, data);
+
+		printf("\33[2K\r");
+		fprintf(stdout, "%s +1", entry);
+		fflush(stdout);
+
+		//  Do not free created items, item key will be freed before cleaning the table
+		if (htIncrease(entry_table, entry) != ITEM_STATUS_CREATED)
+			//  Free entry for *UPDATED* item
+			free(entry);
+
+		//  Free translated DNS data
+		free(data);
 	}
 }
 
@@ -85,9 +116,12 @@ ssize_t receive_data( int sock, uint8_t *data )
 
 /**
  *
+ * @pre entry_table is allocated and initialized
+ *
  * @param interface
+ * @return exit status
  */
-void start_interface_listening( char *interface )
+int start_interface_listening( char *interface )
 {
 	DEBUG_LOG("PROCESS", "Starting listening...");
 
@@ -97,7 +131,7 @@ void start_interface_listening( char *interface )
 	if ((sock = socket(AF_PACKET, SOCK_RAW, htons(0x0800))) == -1)
 	{
 		perror("socket");
-		exit(EXIT_FAILURE);
+		return EXIT_FAILURE;
 	}
 
 	DEBUG_LOG("PROCESS", "Getting interface ID...");
@@ -107,7 +141,7 @@ void start_interface_listening( char *interface )
 	if (ioctl(sock, SIOCGIFINDEX, &if_idx) < 0)
 	{
 		perror("SIOCGIFINDEX");
-		exit(EXIT_FAILURE);
+		return EXIT_FAILURE;
 	}
 
 	DEBUG_LOG("PROCESS", "Setting socket options...");
@@ -115,7 +149,7 @@ void start_interface_listening( char *interface )
 	{
 		perror("SO_BINDTODEVICE");
 		close(sock);
-		exit(EXIT_FAILURE);
+		return EXIT_FAILURE;
 	}
 
 	int flag = 1;
@@ -123,7 +157,7 @@ void start_interface_listening( char *interface )
 	{
 		perror("SO_REUSEADDR");
 		close(sock);
-		exit(EXIT_FAILURE);
+		return EXIT_FAILURE;
 	}
 
     struct timeval timeout;
@@ -133,7 +167,7 @@ void start_interface_listening( char *interface )
     {
         perror("SO_RCVTIMEO");
         close(sock);
-        exit(EXIT_FAILURE);
+		return EXIT_FAILURE;
     }
 
 	/*
@@ -151,9 +185,6 @@ void start_interface_listening( char *interface )
 	socket_dst.sll_addr[3] = 0xFF;
 	socket_dst.sll_addr[4] = 0xFF;
 	socket_dst.sll_addr[5] = 0xFF;*/
-
-	tHTable *entry_table = malloc(HTSIZE * sizeof(tHTItem));
-	htInit(entry_table);
 
     struct timeval time_last, time_now;
     gettimeofday(&time_last, NULL);
@@ -193,10 +224,18 @@ void start_interface_listening( char *interface )
 
 		if (recv_bits > 0)
         {
+			//	Something has been received
             DEBUG_LOG("PROCESS", "Packet received...");
 
             //  Parse headers
             UDPPacketPtr packet = parse_udp_packet(recv_data);
+            if (packet == NULL)
+			{
+				ERR("Failed to process packet, application is unable to continue and will now exit.\n");
+				//	TODO: Rather return than continue;?
+				return EXIT_FAILURE;
+			}
+
             if (packet->udp_header->source == DNS_PORT)
             {
                 DEBUG_LOG("PROCESS", "Packet destination: DNS PORT...");
@@ -204,44 +243,30 @@ void start_interface_listening( char *interface )
 
                 //  Parse DNS part of the packet
                 DNSPacketPtr dns = parse_dns_packet(packet);
+				if (dns == NULL)
+				{
+					ERR("Failed to process DNS packet, application is unable to continue and will now exit.\n");
+					//	TODO: Rather return than continue;?
+					return EXIT_FAILURE;
+				}
 
                 print_dns_packet(dns);
-                for (int i = 0; i < dns->answer_count; i++)
-                {
-                    DNSResourceRecordPtr record = dns->answers[i];
 
-                    char *data; translate_dns_data(record, &data);
-                    char *type = translate_dns_type(dns->answers[i]->record_type);
+				//	Log traffic somehow
+				log_dns_traffic(dns);
 
-                    size_t entry_length = strlen(record->name) + 1 + strlen(type) + 1 + strlen(data); // +1s for whitespaces
-                    char *entry = malloc(entry_length + 1); // +1 for '\0'
-                    sprintf(entry, "%s %s %s", record->name, type, data);
-
-                    unsigned int status = htIncrease(entry_table, entry);
-
-                    printf("\33[2K\r");
-                    fprintf(stdout, "%s +1", entry);
-                    fflush(stdout);
-
-                    //  Do not free created items, item key will be freed before cleaning the table
-                    if (status != ITEM_STATUS_CREATED)
-                        //  Free entry for updated item
-                        free(entry);
-
-                    //  Free translated DNS data
-                    free(data);
-                }
-
+				//	DNS packet is no longer needed
                 destroy_dns_packet(dns);
             }
 
+            //	UDP packet is no longer needed
             destroy_udp_packet(packet);
         }
         else if (recv_bits < 0)
 		    break;
 	}
 
-	free(entry_table);
+	return EXIT_SUCCESS;
 }
 
 /**
@@ -255,7 +280,43 @@ void start_interface_listening( char *interface )
 int main(int argc, char **argv)
 {
 	DEBUG_LOG("MAIN", "Starting application...");
+	int status = EXIT_SUCCESS;
 	//  inicializace
+
+	PcapFilePtr file = pcap_file_open("./test5.pcap");
+	if (file == NULL)
+	{
+		ERR("Failed to open specified file. Application will now exit.\n");
+		exit(EXIT_FAILURE);
+	}
+
+	entry_table = malloc(HTSIZE * sizeof(tHTItem));
+	if (entry_table == NULL)
+	{
+		perror("malloc");
+		ERR("Failed to allocate hash table, application is unable to continue and will now exit.\n");
+		exit(EXIT_FAILURE);
+	}
+	htInit(entry_table);
+
+	UDPPacketPtr packet = parse_udp_packet(file->packets[0]->data);
+
+	print_eth_header(packet);
+	print_ip_header(packet);
+	print_udp_header(packet);
+
+	DNSPacketPtr dns = parse_dns_packet(packet);
+
+	print_dns_packet(dns);
+
+	destroy_dns_packet(dns);
+
+	destroy_udp_packet(packet);
+
+	pcap_file_close(file);
+
+	DEBUG_LOG("MAIN", "Exiting...");
+	exit(EXIT_SUCCESS);
 
 	DEBUG_LOG("MAIN", "Processing options...");
 	//  zpracování přepínačů
@@ -286,11 +347,15 @@ int main(int argc, char **argv)
 	if (1) //	TODO: If listening
 	{
 		//	Start listening
-		start_interface_listening(interface);
+		status = start_interface_listening(interface);
 	}
 
+	DEBUG_LOG("MAIN", "Cleaning up...");
+	pcap_file_close(file);
+	free(entry_table);
+
 	DEBUG_LOG("MAIN", "Exiting program...");
-	exit(EXIT_SUCCESS);
+	exit(status);
 }
 
 

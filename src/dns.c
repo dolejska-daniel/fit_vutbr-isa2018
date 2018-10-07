@@ -153,6 +153,12 @@ void load_dns_string( char **destination, UDPPacketPtr packet, uint16_t *offset_
 				DEBUG_PRINT("%d bytes wont fit in %d, increasing to %d\n", length + data + 1, size, size * 2);
 				//	Make sure, that there is enough space for the string
 				*destination = realloc(*destination, size * 2);
+				if (*destination == NULL)
+                {
+				    DEBUG_ERR("LOAD-DNS-STRING", "Failed to realloc string...");
+				    perror("realloc");
+				    return;
+                }
 				size*= 2;
 			}
 
