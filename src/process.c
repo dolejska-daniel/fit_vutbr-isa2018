@@ -2,6 +2,10 @@
 // ISA, 07.10.2018
 // Author: Daniel Dolejska, FIT
 
+#define DEBUG_PRINT_ENABLED
+#define DEBUG_LOG_ENABLED
+#define DEBUG_ERR_ENABLED
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -10,25 +14,32 @@
 #include <math.h>
 #include <sys/time.h>
 
+#include "process.h"
 #include "main.h"
 #include "network_utils.h"
 #include "macros.h"
 #include "ht.h"
-#include "process.h"
 #include "pcap.h"
 
 
 
 
-void send_statistics()
+void send_statistics( uint32_t send_interval )
 {
 	//  Send stats
 	DEBUG_LOG("PROCESS", "Sending statistics...");
 
 	printf("\33[2K\r");
-	fprintf(stdout, "CURRENT STATS:\n");
-	htWalk(entry_table, &entry_processor);
-	fprintf(stdout, "\n");
+	if (IS_FLAG_ACTIVE(FLAG_SERVER))
+	{
+		htWalk(entry_table, &entry_sender);
+	}
+	else
+	{
+		fprintf(stdout, "=== DNS Traffic Statistics (last %d minute(s) %d second(s)) ===\n", (unsigned)send_interval / 60, (unsigned) send_interval % 60);
+		htWalk(entry_table, &entry_printer);
+		fprintf(stdout, "\n");
+	}
 
 	DEBUG_LOG("PROCESS", "Resetting table...");
 	htClearAll(entry_table);
@@ -116,7 +127,7 @@ int start_interface_listening( char *interface, uint32_t send_interval )
 		DEBUG_PRINT("ms_diff: %f\n", ms_diff);
 		if (ms_diff > send_interval)
 		{
-			send_statistics();
+			send_statistics(send_interval / 1000);
 			time_last = time_now;
 			if (recv_bits == 0)
 				continue;
@@ -132,6 +143,7 @@ int start_interface_listening( char *interface, uint32_t send_interval )
 			break;
 	}
 
+	send_statistics(send_interval / 1000);
 	return EXIT_SUCCESS;
 }
 
@@ -146,13 +158,12 @@ int start_file_processing( PcapFilePtr file, uint32_t send_interval )
 		PcapPacketPtr packet = file->packets[i];
 
 		//  Calculate time difference
-		double ms_diff = (packet->header.ts_sec - header_last->ts_sec) * 1000.0;
-		ms_diff+= (packet->header.ts_usec - header_last->ts_usec) / 1000.0;
+		double ms_diff = (packet->header.ts_sec - header_last->ts_sec);
 
 		DEBUG_PRINT("ms_diff: %f\n", ms_diff);
 		if (ms_diff > send_interval)
 		{
-			send_statistics();
+			send_statistics(send_interval);
 			header_last = &packet->header;
 		}
 
@@ -160,7 +171,7 @@ int start_file_processing( PcapFilePtr file, uint32_t send_interval )
 			return EXIT_FAILURE;
 	}
 
-	send_statistics();
+	send_statistics(send_interval);
 	return EXIT_SUCCESS;
 }
 
@@ -200,7 +211,6 @@ int process_traffic( uint8_t *data )
 	if (packet->udp_header->source == DNS_PORT)
 	{
 		DEBUG_LOG("PROCESS", "Packet destination: DNS PORT...");
-		DEBUG_PRINT("packet_size: %ld\n", recv_bits);
 
 		//  Parse DNS part of the packet
 		DNSPacketPtr dns = parse_dns_packet(packet);

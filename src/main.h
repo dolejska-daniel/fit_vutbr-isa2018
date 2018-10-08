@@ -8,6 +8,8 @@
 #include <stdint.h>
 
 #include "ht.h"
+#include "syslog.h"
+
 
 #ifndef BUFFER_SIZE
 #define BUFFER_SIZE 1500 // send and receive buffer size in bits
@@ -20,6 +22,7 @@
 
 
 extern tHTable *entry_table;
+extern SyslogSenderPtr syslog;
 extern uint8_t flags;
 
 
@@ -30,9 +33,25 @@ extern uint8_t flags;
 
 int main(int argc, char **argv);
 
+/**
+ *
+ * @param signal
+ */
 void signal_handler( int signal );
 
-void entry_processor( tKey key, tData data );
+/**
+ *
+ * @param key
+ * @param data
+ */
+void entry_printer( tKey key, tData data );
+
+/**
+ *
+ * @param key
+ * @param data
+ */
+void entry_sender( tKey key, tData data );
 
 
 #endif //_MAIN_H

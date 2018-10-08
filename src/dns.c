@@ -588,13 +588,19 @@ void print_dns_packet( DNSPacketPtr packet )
 	for (int i = 0; i < packet->answer_count; i++)
 		print_dns_packet_resource_record(packet->answers[i]);
 
-	fprintf(stderr, "DNS_Authorities:\n");
-	for (int i = 0; i < packet->authority_count; i++)
-		print_dns_packet_resource_record(packet->authorities[i]);
+	if (DNS_PROCESS_AUTHORITIES)
+	{
+		fprintf(stderr, "DNS_Authorities:\n");
+		for (int i = 0; i < packet->authority_count; i++)
+			print_dns_packet_resource_record(packet->authorities[i]);
 
-	fprintf(stderr, "DNS_Additionals:\n");
-	for (int i = 0; i < packet->additional_count; i++)
-		print_dns_packet_resource_record(packet->additionals[i]);
+		if (DNS_PROCESS_ADDITIONALS)
+		{
+			fprintf(stderr, "DNS_Additionals:\n");
+			for (int i = 0; i < packet->additional_count; i++)
+				print_dns_packet_resource_record(packet->additionals[i]);
+		}
+	}
 #endif
 }
 

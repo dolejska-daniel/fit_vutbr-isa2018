@@ -34,19 +34,28 @@ SyslogSenderPtr init_syslog_sender( char *server )
 	}
 	memset(sender, 0, sizeof(SyslogSender));
 
-	sender->receiver.sin_port = htons(SYSLOG_PORT);
 	if (process_address(&sender->receiver, server) != EXIT_SUCCESS)
 	{
 		destroy_syslog_sender(sender);
 		return NULL;
 	}
-	DEBUG_PRINT("\tserver: %s:%d\n", inet_ntoa(sender->receiver.sin_addr), SYSLOG_PORT);
+	sender->receiver.sin_port = htons(SYSLOG_PORT);
+	DEBUG_PRINT("\tserver: %s:%d\n", inet_ntoa(sender->receiver.sin_addr), ntohs(sender->receiver.sin_port));
 
 	DEBUG_LOG("INIT-SYSLOG-SENDER", "Creating socket...");
 	//  UDP socket
 	if ((sender->sock = socket(sender->receiver.sin_family, SOCK_DGRAM, IPPROTO_UDP)) == -1)
 	{
 		perror("socket");
+		destroy_syslog_sender(sender);
+		return NULL;
+	}
+
+	/*
+	DEBUG_LOG("INIT-SYSLOG-SENDER", "Performing connect...");
+	if (connect(sender->sock, (struct sockaddr *) &sender->receiver, sizeof(sender->receiver)) < 0)
+	{
+		perror("connect");
 		destroy_syslog_sender(sender);
 		return NULL;
 	}
@@ -68,6 +77,7 @@ SyslogSenderPtr init_syslog_sender( char *server )
 		return NULL;
 	}
 	DEBUG_PRINT("\taddress: %s\n", sender->sender_address);
+	 */
 
 	return sender;
 }
@@ -81,17 +91,18 @@ void destroy_syslog_sender( SyslogSenderPtr sender )
 	free(sender);
 }
 
-int send_syslog_message( SyslogSenderPtr sender, const char *message )
+int send_syslog_message( SyslogSenderPtr sender, const char *message, int count )
 {
 	DEBUG_LOG("SEND-SYSLOG-MSG", "Adding message to buffer...");
 	char syslog_message[MESSAGE_LEN_LIMIT + 1];
 	char *timestamp = syslog_get_timestamp();
-	snprintf(syslog_message, MESSAGE_LEN_LIMIT, "<%d> 1 %s IPADDR %s %d - - %s\13\10",
+	snprintf(syslog_message, MESSAGE_LEN_LIMIT, "<%d> 1 %s IPADDR %s %d - - %s %d\13\10",
 			SYSLOG_FACILITY * SYSLOG_FACILITY_MUL_CONSTANT + SYSLOG_SEVERITY,
-			SYSLOG_APP_NAME,
 			timestamp,
+			SYSLOG_APP_NAME,
 			getpid(),
-			message
+			message,
+			count
 	);
 
 	free(timestamp);
@@ -110,6 +121,7 @@ int send_syslog_message( SyslogSenderPtr sender, const char *message )
 
 void syslog_buffer_append( SyslogSenderPtr sender, const char *message )
 {
+	DEBUG_LOG("SYSLOG-BUFFER-APPEND", "Appending message...");
 	assert(sender->buffer_offset + strlen(message) <= MESSAGE_LEN_LIMIT);
 
 	strcpy(sender->buffer + sender->buffer_offset, message);
@@ -118,13 +130,17 @@ void syslog_buffer_append( SyslogSenderPtr sender, const char *message )
 
 int syslog_buffer_flush( SyslogSenderPtr sender )
 {
-	DEBUG_LOG("SYSLOG-FLUSH", "Sending packet...");
+	*(sender->buffer + (--sender->buffer_offset) - 1) = '\0'; // terminate last message -> ignore LF and turn CR to '\0'
+
+	DEBUG_LOG("SYSLOG-BUFFER-FLUSH", "Sending packet...");
 	int status = (int) sendto(
 		sender->sock,
 		sender->buffer, sender->buffer_offset,
 		0,
 		(struct sockaddr *) &sender->receiver, sizeof(sender->receiver)
 	);
+	DEBUG_PRINT("\tjust sent: %d characters\n", status);
+	DEBUG_PRINT("\tbuffer: '%s'\n", sender->buffer);
 
 	if (status == -1)
 	{
@@ -139,7 +155,7 @@ int syslog_buffer_flush( SyslogSenderPtr sender )
 
 void syslog_buffer_empty( SyslogSenderPtr sender )
 {
-	DEBUG_LOG("SYSLOG-EMPTY", "Emptying buffer...");
+	DEBUG_LOG("SYSLOG-BUFFER-EMPTY", "Emptying buffer...");
 	memset(sender->buffer, 0, MESSAGE_LEN_LIMIT + 1);
 	sender->buffer_offset = 0;
 }

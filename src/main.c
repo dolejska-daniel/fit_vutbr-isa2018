@@ -27,6 +27,7 @@
 
 
 tHTable *entry_table;
+SyslogSenderPtr syslog;
 uint8_t flags = 0b00000000;
 
 
@@ -154,7 +155,6 @@ int main(int argc, char **argv)
 	}
 	htInit(entry_table);
 
-	SyslogSenderPtr syslog = NULL;
 	if (IS_FLAG_ACTIVE(FLAG_SERVER))
 	{
 		syslog = init_syslog_sender(server);
@@ -207,12 +207,16 @@ void signal_handler( int signal )
 	}
 }
 
+void entry_sender( tKey key, tData data )
+{
+	send_syslog_message(syslog, key, data);
+}
 
-void entry_processor( tKey key, tData data )
+void entry_printer( tKey key, tData data )
 {
 	fprintf(stdout, "%s %d\n",
-	        key,
-	        data);
+			key,
+			data);
 }
 
 

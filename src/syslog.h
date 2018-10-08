@@ -53,9 +53,10 @@ void destroy_syslog_sender( SyslogSenderPtr sender );
  *
  * @param sender
  * @param message
+ * @param count
  * @return exit status code
  */
-int send_syslog_message( SyslogSenderPtr sender, const char *message );
+int send_syslog_message( SyslogSenderPtr sender, const char *message, int count );
 
 /**
  * Odesle veskere cekajici zpravy a vyprazdni buffer.
