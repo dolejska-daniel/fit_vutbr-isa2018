@@ -11,7 +11,6 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <unistd.h>
-#include <time.h>
 #include <string.h>
 #include <signal.h>
 
@@ -24,6 +23,7 @@
 #include "macros.h"
 #include "ht.h"
 #include "pcap.h"
+#include "syslog.h"
 
 
 tHTable *entry_table;
@@ -67,6 +67,10 @@ int main(int argc, char **argv)
 					//  Interface flag is already active, cannot use read flag
 					ERR("Option -i is already active! You cannot use option -r and -i together.\n");
 					exit(EXIT_FAILURE);
+				}
+				else if (IS_FLAG_ACTIVE(FLAG_READ))
+				{
+					ERR("Option -r is already active! You cannot use option -r and -s together.\n");
 				}
 
 				SET_FLAG_ACTIVE(FLAG_READ);
@@ -150,6 +154,17 @@ int main(int argc, char **argv)
 	}
 	htInit(entry_table);
 
+	SyslogSenderPtr syslog = NULL;
+	if (IS_FLAG_ACTIVE(FLAG_SERVER))
+	{
+		syslog = init_syslog_sender(server);
+		if (syslog == NULL)
+		{
+			ERR("Failed to allocate and initialize syslog sender, application is unable to continue and will now exit.\n");
+			exit(EXIT_FAILURE);
+		}
+	}
+
 	//	Setup signal capture
 	signal(SIGUSR1, signal_handler);
 
@@ -173,6 +188,9 @@ int main(int argc, char **argv)
 	}
 
 	DEBUG_LOG("MAIN", "Cleaning up...");
+	if (IS_FLAG_ACTIVE(FLAG_SERVER) && syslog != NULL)
+		destroy_syslog_sender(syslog);
+
 	htClearAll(entry_table);
 	free(entry_table);
 

@@ -12,6 +12,8 @@
 
 #include "network.h"
 
+#define DNS_PORT 53
+
 #define GET_DNS_FLAG_VALUE1B(flag, offset) (((flag) & (0b1 << offset)) >> offset)
 #define GET_DNS_FLAG_VALUE4B(flag, offset) (((flag) & (0b1111 << offset)) >> offset)
 
@@ -80,6 +82,9 @@
 #define DNS_CLASS_HS	4	///< HS
 #define DNS_CLASS_NONE	254	///< None
 #define DNS_CLASS_ANY	255	///< Any
+
+#define DNS_PROCESS_AUTHORITIES 0
+#define DNS_PROCESS_ADDITIONALS 0
 
 
 /**
