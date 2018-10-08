@@ -236,14 +236,14 @@ DNSPacketPtr parse_dns_packet( UDPPacketPtr udp_packet )
 			packet->answers[i] = parse_dns_packet_resource_record(udp_packet);
 	}
 
-	if (packet->authority_count > 0)
+	if (packet->authority_count > 0 && DNS_PROCESS_AUTHORITIES)
 	{
 		packet->authorities = malloc(packet->authority_count * sizeof(DNSResourceRecordPtr));
 		for (int i = 0; i < packet->authority_count; i++)
 			packet->authorities[i] = parse_dns_packet_resource_record(udp_packet);
 	}
 
-	if (packet->additional_count > 0)
+	if (packet->additional_count > 0 && DNS_PROCESS_AUTHORITIES && DNS_PROCESS_ADDITIONALS)
 	{
 		packet->additionals = malloc(packet->additional_count * sizeof(DNSResourceRecordPtr));
 		for (int i = 0; i < packet->additional_count; i++)
@@ -355,14 +355,14 @@ void destroy_dns_packet( DNSPacketPtr packet )
 		free(packet->answers);
 	}
 
-	if (packet->authority_count > 0)
+	if (packet->authority_count > 0 && DNS_PROCESS_AUTHORITIES)
 	{
 		for (int i = 0; i < packet->authority_count; i++)
 			destroy_dns_packet_resource_record(packet->authorities[i]);
 		free(packet->authorities);
 	}
 
-	if (packet->additional_count > 0)
+	if (packet->additional_count > 0 && DNS_PROCESS_AUTHORITIES && DNS_PROCESS_ADDITIONALS)
 	{
 		for (int i = 0; i < packet->additional_count; i++)
 			destroy_dns_packet_resource_record(packet->additionals[i]);

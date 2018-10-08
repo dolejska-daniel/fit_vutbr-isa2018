@@ -9,8 +9,6 @@
 
 #include "ht.h"
 
-#define DNS_PORT 53
-
 #ifndef BUFFER_SIZE
 #define BUFFER_SIZE 1500 // send and receive buffer size in bits
 #endif

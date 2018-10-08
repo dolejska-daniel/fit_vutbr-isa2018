@@ -8,18 +8,10 @@
 #include <unistd.h>
 #include <errno.h>
 #include <math.h>
-
 #include <sys/time.h>
-#include <arpa/inet.h>
-#include <linux/if_packet.h>
-#include <net/if.h>
-#include <sys/ioctl.h>
-#include <sys/socket.h>
-#include <netinet/ether.h>
-#include <netinet/ip.h>
-#include <netinet/udp.h>
 
 #include "main.h"
+#include "network_utils.h"
 #include "macros.h"
 #include "ht.h"
 #include "process.h"
