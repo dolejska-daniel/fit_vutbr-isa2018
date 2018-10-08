@@ -28,25 +28,25 @@
 #define DNS_FLAG_OPCODE_NOTIFY	4	///< Notify
 #define DNS_FLAG_OPCODE_UPDATE	5	///< Update
 
-#define DNS_FLAG_AA			10	///< Offset
-#define DNS_FLAG_AA_NO		0	///< Not authoritative
-#define DNS_FLAG_AA_YES		1	///< Is authoritative
+#define DNS_FLAG_AA		10	///< Offset
+#define DNS_FLAG_AA_NO	0	///< Not authoritative
+#define DNS_FLAG_AA_YES	1	///< Is authoritative
 
-#define DNS_FLAG_TC			9	///< Offset
-#define DNS_FLAG_TC_NO		0	///< Not authoritative
-#define DNS_FLAG_TC_YES		1	///< Is authoritative
+#define DNS_FLAG_TC		9	///< Offset
+#define DNS_FLAG_TC_NO	0	///< Not authoritative
+#define DNS_FLAG_TC_YES	1	///< Is authoritative
 
-#define DNS_FLAG_RD			8	///< Offset
-#define DNS_FLAG_RD_NO		0	///< Recursion not desired
-#define DNS_FLAG_RD_YES		1	///< Recursion desired
+#define DNS_FLAG_RD		8	///< Offset
+#define DNS_FLAG_RD_NO	0	///< Recursion not desired
+#define DNS_FLAG_RD_YES	1	///< Recursion desired
 
-#define DNS_FLAG_RA			7	///< Offset
-#define DNS_FLAG_RA_NO		0	///< Recursive query support not available
-#define DNS_FLAG_RA_YES		1	///< Recursive query support available
+#define DNS_FLAG_RA		7	///< Offset
+#define DNS_FLAG_RA_NO	0	///< Recursive query support not available
+#define DNS_FLAG_RA_YES	1	///< Recursive query support available
 
-#define DNS_FLAG_Z			6	///< Offset
-#define DNS_FLAG_AD			5	///< Offset
-#define DNS_FLAG_CD			4	///< Offset
+#define DNS_FLAG_Z		6	///< Offset
+#define DNS_FLAG_AD		5	///< Offset
+#define DNS_FLAG_CD		4	///< Offset
 
 #define DNS_FLAG_RCODE				0	///< Offset
 #define DNS_FLAG_RCODE_NOERR		0	///< The request completed successfully
@@ -59,14 +59,25 @@
 #define DNS_TYPE_A		1	///< IPv4 address
 #define DNS_TYPE_NS		2	///< Authoritative name server
 #define DNS_TYPE_CNAME	5	///< Canonical name for an alias
+#define DNS_TYPE_SOA	6	///< Start of [a zone of] authority record
 #define DNS_TYPE_PTR	12	///< Domain name pointer
 #define DNS_TYPE_MX		15	///< Mail exchange
 #define DNS_TYPE_TXT	16	///< Text strings
+#define DNS_TYPE_KEY	25	///< Key record
 #define DNS_TYPE_AAAA	28	///< IPv6 address
+#define DNS_TYPE_KX		36	///< Key Exchanger record
+#define DNS_TYPE_DS		43	///< Delegation signer
+#define DNS_TYPE_RRSIG	46	///< DNSSEC Lookaside Validation record
+#define DNS_TYPE_NSEC	47	///< Next Secure record
+#define DNS_TYPE_DNSKEY	48	///< DNS Key record
+#define DNS_TYPE_NSEC3	50	///< Next Secure record version 3
+#define DNS_TYPE_SPF	99	///< Sender Policy Framework
+#define DNS_TYPE_TA		32768	///< DNSSEC Lookaside Validation record
+#define DNS_TYPE_DLV	32769	///< DNSSEC Lookaside Validation record
 
 #define DNS_CLASS_IN	1	///< Internet
 #define DNS_CLASS_CH	3	///< Chaos
-#define DNS_CLASS_HS	4	///< None
+#define DNS_CLASS_HS	4	///< HS
 #define DNS_CLASS_NONE	254	///< None
 #define DNS_CLASS_ANY	255	///< Any
 

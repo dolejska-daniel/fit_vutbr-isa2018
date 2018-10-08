@@ -92,6 +92,174 @@ void translate_dns_data( DNSResourceRecordPtr record, char **data )
 			*data = malloc(6);
 			sprintf(*data, "IPV6!");
 			break;
+		case DNS_TYPE_KX:
+		case DNS_TYPE_MX:
+			/*  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+				|                  PREFERENCE                   | 16bits integer
+				+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+				/                   EXCHANGE                    / domain-name
+				/                                               /
+				+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+ */
+			*data = malloc(4);
+			sprintf(*data, "MX!");
+			break;
+		case DNS_TYPE_TA:
+		case DNS_TYPE_DLV:
+		case DNS_TYPE_DS:
+			/* The RDATA for a DS RR consists of a 2 octet Key Tag field, a 1 octet
+			   Algorithm field, a 1 octet Digest Type field, and a Digest field.
+
+									1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+				0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+			   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			   |           Key Tag             |  Algorithm    |  Digest Type  |
+			   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			   /                                                               /
+			   /                            Digest                             /
+			   /                                                               /
+			   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ */
+			*data = malloc(4);
+			sprintf(*data, "DS!");
+			break;
+		case DNS_TYPE_SOA:
+			/*  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+				/                     MNAME                     /
+				/                                               /
+				+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+				/                     RNAME                     /
+				+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+				|                    SERIAL                     |
+				|                                               |
+				+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+				|                    REFRESH                    |
+				|                                               |
+				+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+				|                     RETRY                     |
+				|                                               |
+				+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+				|                    EXPIRE                     |
+				|                                               |
+				+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+				|                    MINIMUM                    |
+				|                                               |
+				+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+
+			MNAME           The <domain-name> of the name server that was the
+							original or primary source of data for this zone.
+
+			RNAME           A <domain-name> which specifies the mailbox of the
+							person responsible for this zone.
+
+			SERIAL          The unsigned 32 bit version number of the original copy
+							of the zone.  Zone transfers preserve this value.  This
+							value wraps and should be compared using sequence space
+							arithmetic.
+
+			REFRESH         A 32 bit time interval before the zone should be
+							refreshed.
+
+			RETRY           A 32 bit time interval that should elapse before a
+							failed refresh should be retried.
+
+			EXPIRE          A 32 bit time value that specifies the upper limit on
+							the time interval that can elapse before the zone is no
+							longer authoritative.
+
+			MINIMUM         The unsigned 32 bit minimum TTL field that should be
+							exported with any RR from this zone. */
+			*data = malloc(5);
+			sprintf(*data, "SOA!");
+			break;
+		case DNS_TYPE_NSEC:
+			/* The RDATA of the NSEC RR is as shown below:
+
+									1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+				0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+			   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			   /                      Next Domain Name                         /
+			   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			   /                       Type Bit Maps                           /
+			   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ */
+			*data = malloc(6);
+			sprintf(*data, "NSEC!");
+			break;
+		case DNS_TYPE_NSEC3:
+			/* The RDATA of the NSEC3 RR is as shown below:
+
+									1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+				0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+			   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			   |   Hash Alg.   |     Flags     |          Iterations           |
+			   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			   |  Salt Length  |                     Salt                      /
+			   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			   |  Hash Length  |             Next Hashed Owner Name            /
+			   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			   /                         Type Bit Maps                         /
+			   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+			   Hash Algorithm is a single octet.
+
+			   Flags field is a single octet, the Opt-Out flag is the least
+			   significant bit, as shown below:
+
+				0 1 2 3 4 5 6 7
+			   +-+-+-+-+-+-+-+-+
+			   |             |O|
+			   +-+-+-+-+-+-+-+-+ */
+			*data = malloc(7);
+			sprintf(*data, "NSEC3!");
+			break;
+		case DNS_TYPE_RRSIG:
+			/* The RDATA for an RRSIG RR consists of a 2 octet Type Covered field, a
+			   1 octet Algorithm field, a 1 octet Labels field, a 4 octet Original
+			   TTL field, a 4 octet Signature Expiration field, a 4 octet Signature
+			   Inception field, a 2 octet Key tag, the Signer's Name field, and the
+			   Signature field.
+
+									1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+				0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+			   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			   |        Type Covered           |  Algorithm    |     Labels    |
+			   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			   |                         Original TTL                          |
+			   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			   |                      Signature Expiration                     |
+			   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			   |                      Signature Inception                      |
+			   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			   |            Key Tag            |                               /
+			   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+         Signer's Name         /
+			   /                                                               /
+			   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			   /                                                               /
+			   /                            Signature                          /
+			   /                                                               /
+			   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ */
+			*data = malloc(7);
+			sprintf(*data, "RRSIG!");
+			break;
+		case DNS_TYPE_DNSKEY:
+		case DNS_TYPE_KEY:
+			/* The RDATA for a DNSKEY RR consists of a 2 octet Flags Field, a 1
+			   octet Protocol Field, a 1 octet Algorithm Field, and the Public Key
+			   Field.
+
+									1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+				0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+			   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			   |              Flags            |    Protocol   |   Algorithm   |
+			   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			   /                                                               /
+			   /                            Public Key                         /
+			   /                                                               /
+			   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ */
+			*data = malloc(8);
+			sprintf(*data, "DNSKEY!");
+			break;
+		case DNS_TYPE_NS: // FIXME: NS load_dns_string might be necessary
+		case DNS_TYPE_TXT:
+		case DNS_TYPE_SPF:
 		default:
 			if (record->rdata_length)
 			{
