@@ -22,31 +22,7 @@
 #include "pcap.h"
 
 
-
-
-void send_statistics( uint32_t send_interval )
-{
-	//  Send stats
-	DEBUG_LOG("PROCESS", "Sending statistics...");
-
-	printf("\33[2K\r");
-	if (IS_FLAG_ACTIVE(FLAG_SERVER))
-	{
-		htWalk(entry_table, &entry_sender);
-	}
-	else
-	{
-		fprintf(stdout, "=== DNS Traffic Statistics (last %d minute(s) %d second(s)) ===\n", (unsigned)send_interval / 60, (unsigned) send_interval % 60);
-		htWalk(entry_table, &entry_printer);
-		fprintf(stdout, "\n");
-	}
-
-	DEBUG_LOG("PROCESS", "Resetting table...");
-	htClearAll(entry_table);
-}
-
-
-
+long send_interval_current = 0;
 
 
 /**
@@ -55,7 +31,7 @@ void send_statistics( uint32_t send_interval )
  * @param interface
  * @return exit status
  */
-int start_interface_listening( char *interface, uint32_t send_interval )
+int start_interface_listening( char *interface )
 {
 	DEBUG_LOG("PROCESS", "Starting listening...");
 
@@ -95,7 +71,7 @@ int start_interface_listening( char *interface, uint32_t send_interval )
 	}
 
 	struct timeval timeout;
-	timeout.tv_sec = (long) send_interval / 4;
+	timeout.tv_sec = send_interval / 4;
 	timeout.tv_usec = 0;
 	if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(struct timeval)) < 0)
 	{
@@ -106,7 +82,7 @@ int start_interface_listening( char *interface, uint32_t send_interval )
 
 	struct timeval time_last, time_now;
 	gettimeofday(&time_last, NULL);
-	send_interval*= 1000;
+	long send_interval_ms = send_interval * 1000;
 
 	DEBUG_LOG("PROCESS", "Listening for transmissions...");
 
@@ -123,11 +99,12 @@ int start_interface_listening( char *interface, uint32_t send_interval )
 		//  Calculate time difference
 		double ms_diff = (time_now.tv_sec - time_last.tv_sec) * 1000.0;
 		ms_diff+= (time_now.tv_usec - time_last.tv_usec) / 1000.0;
+		send_interval_current = (long) ms_diff / 1000;
 
 		DEBUG_PRINT("ms_diff: %f\n", ms_diff);
-		if (ms_diff > send_interval)
+		if (ms_diff > send_interval_ms)
 		{
-			send_statistics(send_interval / 1000);
+			send_statistics(1, 0);
 			time_last = time_now;
 			if (recv_bits == 0)
 				continue;
@@ -143,11 +120,11 @@ int start_interface_listening( char *interface, uint32_t send_interval )
 			break;
 	}
 
-	send_statistics(send_interval / 1000);
+	send_statistics(1, 0);
 	return EXIT_SUCCESS;
 }
 
-int start_file_processing( PcapFilePtr file, uint32_t send_interval )
+int start_file_processing( PcapFilePtr file )
 {
 	if (file->packet_count == 0)
 		return EXIT_SUCCESS;
@@ -158,12 +135,13 @@ int start_file_processing( PcapFilePtr file, uint32_t send_interval )
 		PcapPacketPtr packet = file->packets[i];
 
 		//  Calculate time difference
-		double ms_diff = (packet->header.ts_sec - header_last->ts_sec);
+		double s_diff = (packet->header.ts_sec - header_last->ts_sec);
+		send_interval_current = (long) s_diff;
 
-		DEBUG_PRINT("ms_diff: %f\n", ms_diff);
-		if (ms_diff > send_interval)
+		DEBUG_PRINT("s_diff: %f\n", s_diff);
+		if (s_diff > send_interval)
 		{
-			send_statistics(send_interval);
+			send_statistics(1, 0);
 			header_last = &packet->header;
 		}
 
@@ -171,7 +149,7 @@ int start_file_processing( PcapFilePtr file, uint32_t send_interval )
 			return EXIT_FAILURE;
 	}
 
-	send_statistics(send_interval);
+	send_statistics(1, 0);
 	return EXIT_SUCCESS;
 }
 
@@ -187,6 +165,14 @@ short receive_data( int sock, uint8_t *data )
 		//  Receive timeout
 		DEBUG_LOG("PROCESS", "No waiting packets...");
 		recv_bits = 0;
+		errno = 0;
+	}
+	else if (errno == EINTR)
+	{
+		//  Process was interrupted
+		DEBUG_LOG("PROCESS", "Recvfrom interrupted...");
+		recv_bits = 0;
+		errno = 0;
 	}
 	else if (recv_bits < 0 || errno != 0)
 	{
@@ -260,5 +246,29 @@ void process_dns_traffic( DNSPacketPtr dns )
 
 		//  Free translated DNS data
 		free(data);
+	}
+}
+
+void send_statistics( short clear_table, short force_print )
+{
+	//  Send stats
+	DEBUG_LOG("PROCESS", "Sending statistics...");
+
+	printf("\33[2K\r");
+	if (IS_FLAG_ACTIVE(FLAG_SERVER) && force_print == 0)
+	{
+		htWalk(entry_table, &entry_sender);
+	}
+	else
+	{
+		fprintf(stdout, "=== DNS Traffic Statistics (last %ld minute(s) %ld second(s)) ===\n", send_interval_current / 60, send_interval_current % 60);
+		htWalk(entry_table, &entry_printer);
+		fprintf(stdout, "\n");
+	}
+
+	if (clear_table == 1)
+	{
+		DEBUG_LOG("PROCESS", "Resetting table...");
+		htClearAll(entry_table);
 	}
 }

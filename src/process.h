@@ -10,16 +10,18 @@
 #include "pcap.h"
 
 
+extern long send_interval_current;
+
+
 /**
  * Zacne naslouchat na danem sitovem rozhrani a zpracovavat provoz.
  *
  * @pre entry_table is allocated and initialized
  *
  * @param interface
- * @param send_interval
  * @return exit status code
  */
-int start_interface_listening( char *interface, uint32_t send_interval );
+int start_interface_listening( char *interface );
 
 /**
  * Zpracuje dany pcap soubor.
@@ -27,10 +29,9 @@ int start_interface_listening( char *interface, uint32_t send_interval );
  * @pre entry_table is allocated and initialized
  *
  * @param file
- * @param send_interval
  * @return exit status code
  */
-int start_file_processing( PcapFilePtr file, uint32_t send_interval );
+int start_file_processing( PcapFilePtr file );
 
 /**
  * Nacte data ze socketu.
@@ -54,6 +55,14 @@ int process_traffic( uint8_t *data );
  * @param dns
  */
 void process_dns_traffic( DNSPacketPtr dns );
+
+/**
+ * Odesle aktualni statistiky.
+ *
+ * @param clear_table
+ * @param force_print
+ */
+void send_statistics( short clear_table, short force_print );
 
 
 #endif //_PROCESS_H

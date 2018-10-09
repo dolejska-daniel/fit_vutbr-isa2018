@@ -24,6 +24,7 @@
 extern tHTable *entry_table;
 extern SyslogSenderPtr syslog;
 extern uint8_t flags;
+extern long send_interval;
 
 
 #define FLAG_MASK(offset)       (1 << offset)

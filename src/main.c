@@ -29,6 +29,7 @@
 tHTable *entry_table;
 SyslogSenderPtr syslog;
 uint8_t flags = 0b00000000;
+long send_interval = 0;
 
 
 /**
@@ -54,7 +55,6 @@ int main(int argc, char **argv)
 	char *interface = NULL;
 	char *server = NULL;
 	char *time = "60";
-	uint32_t time_interval = 0;
 
 	int c;
 	while ((c = getopt(argc, argv, "r:i:s:t:")) != -1)
@@ -69,9 +69,9 @@ int main(int argc, char **argv)
 					ERR("Option -i is already active! You cannot use option -r and -i together.\n");
 					exit(EXIT_FAILURE);
 				}
-				else if (IS_FLAG_ACTIVE(FLAG_READ))
+				else if (IS_FLAG_ACTIVE(FLAG_SERVER))
 				{
-					ERR("Option -r is already active! You cannot use option -r and -s together.\n");
+					ERR("Option -s is already active! You cannot use option -r and -s together.\n");
 				}
 
 				SET_FLAG_ACTIVE(FLAG_READ);
@@ -90,12 +90,28 @@ int main(int argc, char **argv)
 
 				SET_FLAG_ACTIVE(FLAG_INTERFACE);
 				interface = optarg;
+				if (strlen(interface) == 0)
+				{
+					ERR("Interface name must be non-empty string identifier.");
+					exit(EXIT_FAILURE);
+				}
+
 				break;
 
 			/** hostname/ipv4/ipv6 adresa syslog serveru */
 			case 's':
+				if (IS_FLAG_ACTIVE(FLAG_READ))
+				{
+					ERR("Option -r is already active! You cannot use option -r and -s together.\n");
+				}
+
 				SET_FLAG_ACTIVE(FLAG_SERVER);
 				server = optarg;
+				if (strlen(server) == 0)
+				{
+					ERR("Syslog server must be non-empty string representation of either IPv4, IPv6 or hostname.");
+					exit(EXIT_FAILURE);
+				}
 
 				break;
 
@@ -132,7 +148,7 @@ int main(int argc, char **argv)
 	}
 
 	char *err;
-	time_interval = (uint32_t) strtoul(time, &err, 10);
+	send_interval = (long) strtoul(time, &err, 10);
 	if (strlen(err))
 	{
 		DEBUG_PRINT("time: '%s'\nerr: '%s'\n", time, err);
@@ -140,8 +156,8 @@ int main(int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 
-	DEBUG_PRINT("Using following arguments:\n\t-r: '%s'\n\t-i: '%s'\n\t-s: '%s'\n\t-t: %u\n",
-			filepath, interface, server, time_interval);
+	DEBUG_PRINT("Using following arguments:\n\t-r: '%s'\n\t-i: '%s'\n\t-s: '%s'\n\t-t: %ld\n",
+			filepath, interface, server, send_interval);
 
 	DEBUG_LOG("MAIN", "Starting application...");
 	int status = EXIT_SUCCESS;
@@ -171,7 +187,7 @@ int main(int argc, char **argv)
 	if (IS_FLAG_ACTIVE(FLAG_INTERFACE))
 	{
 		//	Start listening on interface
-		status = start_interface_listening(interface, time_interval);
+		status = start_interface_listening(interface);
 	}
 	else if (IS_FLAG_ACTIVE(FLAG_READ))
 	{
@@ -183,7 +199,7 @@ int main(int argc, char **argv)
 			exit(EXIT_FAILURE);
 		}
 
-		status = start_file_processing(file, time_interval);
+		status = start_file_processing(file);
 		pcap_file_close(file);
 	}
 
@@ -200,10 +216,15 @@ int main(int argc, char **argv)
 
 void signal_handler( int signal )
 {
-	if (signal == SIGUSR1)
+	switch (signal)
 	{
-		fprintf(stdout, "RECEIVED SIGUSR1!!!!!\n");
-		//	TODO: Print statistics to stdout
+		case SIGUSR1:
+			DEBUG_LOG("MAIN", "Received SIGUSR1, printing current statistics...");
+			send_statistics(0, 1);
+			break;
+		default:
+			DEBUG_LOG("MAIN", "Received signal...");
+			DEBUG_PRINT("\tsignal id: %d\n", signal);
 	}
 }
 
