@@ -139,7 +139,7 @@ int start_file_processing( PcapFilePtr file )
 		send_interval_current = (long) s_diff;
 
 		DEBUG_PRINT("s_diff: %f\n", s_diff);
-		if (s_diff > send_interval)
+		if (s_diff > send_interval && IS_FLAG_ACTIVE(FLAG_TIME))
 		{
 			send_statistics(1, 0);
 			header_last = &packet->header;
@@ -283,6 +283,7 @@ void send_statistics( short clear_table, short force_print )
 	if (IS_FLAG_ACTIVE(FLAG_SERVER) && force_print == 0)
 	{
 		htWalk(entry_table, &entry_sender);
+		syslog_buffer_flush(syslog);
 	}
 	else
 	{

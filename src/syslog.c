@@ -51,33 +51,8 @@ SyslogSenderPtr init_syslog_sender( char *server )
 		return NULL;
 	}
 
-	/*
-	DEBUG_LOG("INIT-SYSLOG-SENDER", "Performing connect...");
-	if (connect(sender->sock, (struct sockaddr *) &sender->receiver, sizeof(sender->receiver)) < 0)
-	{
-		perror("connect");
-		destroy_syslog_sender(sender);
-		return NULL;
-	}
-
-	struct sockaddr sockaddress;
-	socklen_t socksize = sizeof(sockaddress);
-	if (getsockname(sender->sock, &sockaddress, &socksize) < 0)
-	{
-		perror("getsockname");
-		destroy_syslog_sender(sender);
-		return NULL;
-	}
-
-	if (inet_ntop(sockaddress.sa_family, &sockaddress.sa_data, sender->sender_address, INET6_ADDRSTRLEN) == NULL)
-	{
-		ERR("Failed to convert source network address.");
-		perror("inet_ntop");
-		destroy_syslog_sender(sender);
-		return NULL;
-	}
-	DEBUG_PRINT("\taddress: %s\n", sender->sender_address);
-	 */
+	gethostname(sender->sender_address, INET6_ADDRSTRLEN);
+	DEBUG_PRINT("\thostname: %s\n", sender->sender_address);
 
 	return sender;
 }
@@ -96,9 +71,10 @@ int send_syslog_message( SyslogSenderPtr sender, const char *message, int count 
 	DEBUG_LOG("SEND-SYSLOG-MSG", "Adding message to buffer...");
 	char syslog_message[MESSAGE_LEN_LIMIT + 1];
 	char *timestamp = syslog_get_timestamp();
-	snprintf(syslog_message, MESSAGE_LEN_LIMIT, "<%d> 1 %s IPADDR %s %d - - %s %d\13\10",
+	snprintf(syslog_message, MESSAGE_LEN_LIMIT, "<%d> 1 %s %s %s %d - - %s %d\13\10",
 			SYSLOG_FACILITY * SYSLOG_FACILITY_MUL_CONSTANT + SYSLOG_SEVERITY,
 			timestamp,
+			sender->sender_address,
 			SYSLOG_APP_NAME,
 			getpid(),
 			message,
