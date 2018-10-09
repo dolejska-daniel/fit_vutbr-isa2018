@@ -11,6 +11,16 @@
 #include <stdint.h>
 
 
+//  L3 Protocols
+#define IPv4    0x0800
+#define IPv6    0x86dd
+#define ARP     0x0806
+
+//  L4 Protocols
+#define TCP 0x06
+#define UDP 0x11
+
+
 /**
  * Vypocte kontrolni soucet pro obsah packetu.
  *
@@ -28,9 +38,25 @@ unsigned short check_sum(unsigned short *buf, int nwords);
  */
 size_t get_header_sizes();
 
+/**
+ * Ziska protokol na L3 vrstve (sitova). IPv4, IPv6, ARP, RIP, ...
+ *
+ * @param packet
+ * @return uint16_t
+ */
+uint16_t get_packet_L3_protocol( const uint8_t *packet );
+
+/**
+ * Ziska protokol na L4 vrstve (transportni). TCP, UDP, ...
+ *
+ * @param packet
+ * @return uint16_t
+ */
+uint16_t get_packet_L4_protocol( const uint8_t *packet );
+
 
 // ///////////////////////////////////////////////////////////////////////
-//      GENERAL
+//      UDP
 // ///////////////////////////////////////////////////////////////////////
 
 struct udp_packet {

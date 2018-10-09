@@ -39,6 +39,21 @@ size_t get_header_sizes()
 //      GENERAL
 // ///////////////////////////////////////////////////////////////////////
 
+uint16_t get_packet_L3_protocol( const uint8_t *packet )
+{
+    return ntohs(((struct ethhdr *) packet)->h_proto);
+}
+
+uint16_t get_packet_L4_protocol( const uint8_t *packet )
+{
+    return ((struct iphdr *) (packet + get_eth_header_size()))->protocol;
+}
+
+
+// ///////////////////////////////////////////////////////////////////////
+//      UDP
+// ///////////////////////////////////////////////////////////////////////
+
 UDPPacketPtr parse_udp_packet( uint8_t *packet_data )
 {
     DEBUG_LOG("UDP-PACKET-PARSE", "Parsing UDP packet...");
@@ -278,4 +293,25 @@ void udp_encaps( uint8_t *packet, uint16_t *packet_len, uint16_t source_port, ui
     DEBUG_LOG("UDPH-ENCAPS", "UDP header created...");
     DEBUG_PRINT("\tpacket_length (local): %hu (added %lu)\n", (unsigned short) *packet_len, get_udp_header_size());
     print_udp_header_struct(udph);
+}
+
+
+// ///////////////////////////////////////////////////////////////////////
+//      TCP HEADERS
+// ///////////////////////////////////////////////////////////////////////
+
+struct tcphdr *get_tcp_header( uint8_t *packet )
+{
+    //DEBUG_LOG("TCPH-GET", "Getting TCP header...");
+    struct tcphdr *header = (struct tcphdr *) (packet + get_ip_header_size() + get_eth_header_size());
+    header->check  = ntohs(header->check);
+    header->source = ntohs(header->source);
+    header->dest   = ntohs(header->dest);
+
+    return header;
+}
+
+size_t get_tcp_header_size()
+{
+    return sizeof(struct tcphdr);
 }
