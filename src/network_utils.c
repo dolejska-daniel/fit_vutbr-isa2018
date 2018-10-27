@@ -63,3 +63,13 @@ int process_address( SocketAddressPtr address, char *target_address )
 
 	return EXIT_SUCCESS;
 }
+
+uint16_t get_packet_L3_protocol( const uint8_t *packet )
+{
+	return ntohs(((struct ethhdr *) packet)->h_proto);
+}
+
+uint16_t get_packet_L4_protocol( const uint8_t *packet )
+{
+	return ((struct iphdr *) (packet + get_eth_header_size()))->protocol;
+}

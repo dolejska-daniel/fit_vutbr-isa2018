@@ -197,8 +197,44 @@ int process_traffic( uint8_t *data )
 	uint16_t L4_protocol = get_packet_L4_protocol(data);
 	if (L4_protocol == TCP)
 	{
-		//  Ignore TCP packets for now
-		DEBUG_PRINT("\tL4_protocol: %#x (ignoring %#x)\n", L4_protocol, TCP);
+		//  Parse headers
+		TCPPacketPtr packet = parse_tcp_packet(data);
+		if (packet == NULL)
+		{
+			ERR("Failed to process packet, application is unable to continue and will now exit.\n");
+			//	TODO: Rather return than continue;?
+			return EXIT_FAILURE;
+		}
+
+		//  TODO: Create common packet from TCP packet
+
+		/*
+		if (packet->tcp_header->source == DNS_PORT)
+		{
+			DEBUG_LOG("PROCESS[TCP]", "Packet destination: DNS PORT...");
+
+			//  Parse DNS part of the packet
+			DNSPacketPtr dns = parse_dns_packet(packet);
+			if (dns == NULL)
+			{
+				ERR("Failed to process DNS packet, application is unable to continue and will now exit.\n");
+				//	TODO: Rather return than continue;?
+				return EXIT_FAILURE;
+			}
+
+			print_dns_packet(dns);
+
+			//	Log traffic somehow
+			process_dns_traffic(dns);
+
+			//	DNS packet is no longer needed
+			destroy_dns_packet(dns);
+		}
+
+		//	UDP packet is no longer needed
+		destroy_udp_packet(packet);
+		 */
+
 		return EXIT_SUCCESS;
 	}
 	else if (L4_protocol == UDP)
@@ -212,9 +248,11 @@ int process_traffic( uint8_t *data )
 			return EXIT_FAILURE;
 		}
 
+		//  TODO: Create common packet from UDP packet
+
 		if (packet->udp_header->source == DNS_PORT)
 		{
-			DEBUG_LOG("PROCESS", "Packet destination: DNS PORT...");
+			DEBUG_LOG("PROCESS[UDP]", "Packet destination: DNS PORT...");
 
 			//  Parse DNS part of the packet
 			DNSPacketPtr dns = parse_dns_packet(packet);

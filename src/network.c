@@ -19,6 +19,10 @@
 #include "dns.h"
 
 
+// ///////////////////////////////////////////////////////////////////////
+//      GENERAL
+// ///////////////////////////////////////////////////////////////////////
+
 unsigned short check_sum( unsigned short *buf, int nwords )
 {
     unsigned long sum;
@@ -36,17 +40,44 @@ size_t get_header_sizes()
 
 
 // ///////////////////////////////////////////////////////////////////////
-//      GENERAL
+//      TCP
 // ///////////////////////////////////////////////////////////////////////
 
-uint16_t get_packet_L3_protocol( const uint8_t *packet )
+TCPPacketPtr parse_tcp_packet( uint8_t *packet_data )
 {
-    return ntohs(((struct ethhdr *) packet)->h_proto);
+    DEBUG_LOG("TCP-PACKET-PARSE", "Parsing TCP packet...");
+    TCPPacketPtr packet = (TCPPacketPtr) malloc(sizeof(TCPPacket));
+    if (packet == NULL)
+    {
+        perror("malloc");
+        exit(EXIT_FAILURE);
+    }
+
+    packet->eth_header = get_eth_header(packet_data);
+    packet->ip_header  = get_ip_header(packet_data);
+    packet->tcp_header = get_tcp_header(packet_data);
+    packet->data       = packet_data + get_header_sizes();
+    packet->offset     = 0;
+
+    return packet;
 }
 
-uint16_t get_packet_L4_protocol( const uint8_t *packet )
+void destroy_tcp_packet( TCPPacketPtr packet )
 {
-    return ((struct iphdr *) (packet + get_eth_header_size()))->protocol;
+    assert(packet != NULL);
+
+    DEBUG_LOG("TCP-PACKET-DESTROY", "Destroying TCP packet...");
+    free(packet);
+}
+
+uint8_t *get_tcp_packet_data( TCPPacketPtr packet )
+{
+    return packet->data + packet->offset;
+}
+
+uint8_t *get_tcp_packet_data_custom( TCPPacketPtr packet, uint16_t offset )
+{
+    return packet->data + offset;
 }
 
 
@@ -314,4 +345,22 @@ struct tcphdr *get_tcp_header( uint8_t *packet )
 size_t get_tcp_header_size()
 {
     return sizeof(struct tcphdr);
+}
+
+void print_tcp_header( const TCPPacketPtr packet )
+{
+	print_tcp_header_struct(packet->tcp_header);
+}
+
+void print_tcp_header_struct( const struct tcphdr *tcph )
+{
+#ifdef DEBUG_PRINT_ENABLED
+	fprintf(
+		stderr, "TCP_HEADER (size: %ld): {\n\tsource\t%u\n\tdest\t%u\n\tcheck\t%#x\n}\n",
+		get_tcp_header_size(),
+		tcph->source,
+		tcph->dest,
+		tcph->check
+	);
+#endif
 }

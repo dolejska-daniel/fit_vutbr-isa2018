@@ -49,4 +49,20 @@ int process_hostname( SocketAddressPtr address, char *target_hostname );
  */
 int process_address( SocketAddressPtr address, char *target_address );
 
+/**
+ * Ziska protokol na L3 vrstve (sitova). IPv4, IPv6, ARP, RIP, ...
+ *
+ * @param packet
+ * @return uint16_t
+ */
+uint16_t get_packet_L3_protocol( const uint8_t *packet );
+
+/**
+ * Ziska protokol na L4 vrstve (transportni). TCP, UDP, ...
+ *
+ * @param packet
+ * @return uint16_t
+ */
+uint16_t get_packet_L4_protocol( const uint8_t *packet );
+
 #endif //_NETWORK_UTILS_H

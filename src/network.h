@@ -21,6 +21,10 @@
 #define UDP 0x11
 
 
+// ///////////////////////////////////////////////////////////////////////
+//      GENERAL
+// ///////////////////////////////////////////////////////////////////////
+
 /**
  * Vypocte kontrolni soucet pro obsah packetu.
  *
@@ -38,21 +42,53 @@ unsigned short check_sum(unsigned short *buf, int nwords);
  */
 size_t get_header_sizes();
 
-/**
- * Ziska protokol na L3 vrstve (sitova). IPv4, IPv6, ARP, RIP, ...
- *
- * @param packet
- * @return uint16_t
- */
-uint16_t get_packet_L3_protocol( const uint8_t *packet );
+
+// ///////////////////////////////////////////////////////////////////////
+//      TCP
+// ///////////////////////////////////////////////////////////////////////
+
+struct tcp_packet {
+	struct ethhdr 	*eth_header;	///< Ehternet header structure
+	struct iphdr  	*ip_header;		///< IP header structure
+	struct tcphdr 	*tcp_header;	///< TCP header structure
+	uint8_t 		*data;			///< Data
+	uint16_t 		offset;			///< Data read offset
+};
+typedef struct tcp_packet  TCPPacket;
+typedef struct tcp_packet* TCPPacketPtr;
 
 /**
- * Ziska protokol na L4 vrstve (transportni). TCP, UDP, ...
+ * Alokuje a inicializuje datovou strukturu pro hlavicky packetu dle prijatych
+ * dat.
+ *
+ * @param packet_data
+ * @return TCPPacketPtr
+ */
+TCPPacketPtr parse_tcp_packet( uint8_t *packet_data );
+
+/**
+ * Zrusi alokovanou strukturu pro hlavicky packetu.
  *
  * @param packet
- * @return uint16_t
  */
-uint16_t get_packet_L4_protocol( const uint8_t *packet );
+void destroy_tcp_packet( TCPPacketPtr packet );
+
+/**
+ * Ziska ukazatel na data TCP packetu na aktualni pozici.
+ *
+ * @param packet
+ * @return uint8_t*
+ */
+uint8_t *get_tcp_packet_data( TCPPacketPtr packet );
+
+/**
+ * Ziska ukazatel na data TCP packetu na vlastni pozici.
+ *
+ * @param packet
+ * @param offset
+ * @return uint8_t*
+ */
+uint8_t *get_tcp_packet_data_custom( TCPPacketPtr packet, uint16_t offset );
 
 
 // ///////////////////////////////////////////////////////////////////////
@@ -85,8 +121,21 @@ UDPPacketPtr parse_udp_packet( uint8_t *packet_data );
  */
 void destroy_udp_packet( UDPPacketPtr packet );
 
+/**
+ * Ziska ukazatel na data UDP packetu na aktualni pozici.
+ *
+ * @param packet
+ * @return uint8_t*
+ */
 uint8_t *get_udp_packet_data( UDPPacketPtr packet );
 
+/**
+ * Ziska ukazatel na data UDP packetu na vlastni pozici.
+ *
+ * @param packet
+ * @param offset
+ * @return uint8_t*
+ */
 uint8_t *get_udp_packet_data_custom( UDPPacketPtr packet, uint16_t offset );
 
 
@@ -125,7 +174,7 @@ size_t get_eth_header_size();
  *
  * @param packet
  */
-void print_eth_header( const UDPPacketPtr packet );
+void print_eth_header( UDPPacketPtr packet );
 
 /**
  * Vypise obsah ETH headeru na stderr.
@@ -169,7 +218,7 @@ size_t get_ip_header_size();
  *
  * @param packet
  */
-void print_ip_header( const UDPPacketPtr packet );
+void print_ip_header( UDPPacketPtr packet );
 
 /**
  * Vypise obsah IP headeru na stderr.
@@ -223,7 +272,7 @@ size_t get_udp_header_size();
  *
  * @param packet
  */
-void print_udp_header( const UDPPacketPtr packet );
+void print_udp_header( UDPPacketPtr packet );
 
 /**
  * Vypise obsah UDP headeru na stderr.
@@ -241,5 +290,51 @@ void print_udp_header_struct( const struct udphdr *udph );
  * @param destination_port
  */
 void udp_encaps( uint8_t *packet, uint16_t *packet_len, uint16_t source_port, uint16_t destination_port );
+
+
+// ///////////////////////////////////////////////////////////////////////
+//      TCP HEADERS
+// ///////////////////////////////////////////////////////////////////////
+
+/**
+ * Struktura reprezentujici TCP hlavicku
+ */
+struct tcp_header {
+	uint16_t    source;			///< Zdrojovy port
+	uint16_t    destination;	///< Cilovy port
+	uint16_t    length;			///< Delka dat
+	uint16_t    check;			///< Checksum
+};
+typedef struct tcp_header  TCPHeader;
+typedef struct tcp_header* TCPHeaderPtr;
+
+/**
+ * Z datoveho packetu ziska ukazatel na cast s TCP headerem.
+ *
+ * @param packet
+ * @return struct tcphdr*
+ */
+struct tcphdr *get_tcp_header( uint8_t *packet );
+
+/**
+ * Ziska velikost TCP headeru.
+ *
+ * @return size_t
+ */
+size_t get_tcp_header_size();
+
+/**
+ * Vypise obsah TCP headeru z packetu na stderr.
+ *
+ * @param packet
+ */
+void print_tcp_header( TCPPacketPtr packet );
+
+/**
+ * Vypise obsah TCP headeru na stderr.
+ *
+ * @param tcph
+ */
+void print_tcp_header_struct( const struct tcphdr *tcph );
 
 #endif //_NETWORK_H
