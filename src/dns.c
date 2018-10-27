@@ -72,25 +72,53 @@ char *translate_dns_type( uint16_t type ) {
 		if (types[i].type == type)
 			return types[i].string;
 
-	return "|?|";
+	return "*?*";
 }
 
-void translate_dns_data( DNSResourceRecordPtr record, char **data )
+int load_resource_record_data( PacketDataPtr pdata, DNSResourceRecordPtr record )
 {
+	DEBUG_LOG("DNS-RECORD-PARSE", "Loading rdata...");
 	uint16_t len;
 	switch (record->record_type)
 	{
 		case DNS_TYPE_A:
-			*data = malloc(16);
-			sprintf(*data, "%hu.%hu.%hu.%hu",
-					record->rdata[0],
-					record->rdata[1],
-					record->rdata[2],
-					record->rdata[3]);
+			{
+				record->rdata = malloc(INET_ADDRSTRLEN);
+				if (record->rdata == NULL)
+				{
+					perror("malloc");
+					return EXIT_FAILURE;
+				}
+
+				inet_ntop(AF_INET, get_packet_data(pdata), record->rdata, INET_ADDRSTRLEN);
+			}
 			break;
 		case DNS_TYPE_AAAA:
-			*data = malloc(6);
-			sprintf(*data, "IPV6!");
+			{
+				record->rdata = malloc(INET6_ADDRSTRLEN);
+				if (record->rdata == NULL)
+				{
+					perror("malloc");
+					return EXIT_FAILURE;
+				}
+
+				inet_ntop(AF_INET6, get_packet_data(pdata), record->rdata, INET6_ADDRSTRLEN);
+			}
+			break;
+		case DNS_TYPE_NS:
+		case DNS_TYPE_PTR:
+		case DNS_TYPE_CNAME:
+			{
+				record->rdata = malloc(32 * sizeof(char));
+				if (record->rdata == NULL)
+				{
+					perror("malloc");
+					return EXIT_FAILURE;
+				}
+				uint16_t domain_name_length = 0;
+				uint16_t offset = pdata->offset;
+				load_domain_name(&record->rdata, pdata, &offset, 32, &domain_name_length);
+			}
 			break;
 		case DNS_TYPE_KX:
 		case DNS_TYPE_MX:
@@ -100,8 +128,28 @@ void translate_dns_data( DNSResourceRecordPtr record, char **data )
 				/                   EXCHANGE                    / domain-name
 				/                                               /
 				+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+ */
-			*data = malloc(4);
-			sprintf(*data, "MX!");
+			{
+				uint16_t offset = pdata->offset;
+				uint16_t preference = ntohs(*((uint16_t*) get_packet_data(pdata))); offset+= sizeof(uint16_t);
+
+				char *exchange = malloc(32 * sizeof(char));
+				if (exchange == NULL)
+				{
+					perror("malloc");
+					return EXIT_FAILURE;
+				}
+				uint16_t exchange_length = 0;
+				load_domain_name(&exchange, pdata, &offset, 32, &exchange_length);
+
+				record->rdata = malloc(UINT16_STRLEN + exchange_length + 2); // +1 whitespace, +1 '\0'
+				if (record->rdata == NULL)
+				{
+					perror("malloc");
+					return EXIT_FAILURE;
+				}
+				sprintf(record->rdata, "%d %s", preference, exchange);
+				free(exchange);
+			}
 			break;
 		case DNS_TYPE_TA:
 		case DNS_TYPE_DLV:
@@ -118,13 +166,14 @@ void translate_dns_data( DNSResourceRecordPtr record, char **data )
 			   /                            Digest                             /
 			   /                                                               /
 			   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ */
-			*data = malloc(4);
-			sprintf(*data, "DS!");
+			{
+				record->rdata = malloc(4);
+				sprintf(record->rdata, "DS!");
+			}
 			break;
 		case DNS_TYPE_SOA:
 			/*  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
 				/                     MNAME                     /
-				/                                               /
 				+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
 				/                     RNAME                     /
 				+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
@@ -167,8 +216,52 @@ void translate_dns_data( DNSResourceRecordPtr record, char **data )
 
 			MINIMUM         The unsigned 32 bit minimum TTL field that should be
 							exported with any RR from this zone. */
-			*data = malloc(5);
-			sprintf(*data, "SOA!");
+			{
+				uint16_t offset = pdata->offset;
+
+				//  MNAME
+				char *mname = malloc(32 * sizeof(char));
+				if (mname == NULL)
+				{
+					perror("malloc");
+					return EXIT_FAILURE;
+				}
+				uint16_t mname_length = 0;
+				load_domain_name(&mname, pdata, &offset, 32, &mname_length);
+
+				//  RNAME
+				char *rname = malloc(32 * sizeof(char));
+				if (rname == NULL)
+				{
+					perror("malloc");
+					free(mname);
+					return EXIT_FAILURE;
+				}
+				uint16_t rname_length = 0;
+				load_domain_name(&rname, pdata, &offset, 32, &rname_length);
+
+				//  SERIAL, REFRESH, ...
+				int serial  = (int)ntohl(*((uint32_t *) get_packet_data_custom(pdata, offset))); offset+= sizeof(int);
+				int refresh = (int)ntohl(*((uint32_t *) get_packet_data_custom(pdata, offset))); offset+= sizeof(int);
+				int retry   = (int)ntohl(*((uint32_t *) get_packet_data_custom(pdata, offset))); offset+= sizeof(int);
+				int expire  = (int)ntohl(*((uint32_t *) get_packet_data_custom(pdata, offset))); offset+= sizeof(int);
+				int minimum = (int)ntohl(*((uint32_t *) get_packet_data_custom(pdata, offset)));
+
+
+				record->rdata = malloc(mname_length + rname_length + 5 * UINT32_STRLEN + 7); //  +7 = 6 spaces, 1 '\0'
+				if (record->rdata == NULL)
+				{
+					perror("malloc");
+					free(mname);
+					free(rname);
+					return EXIT_FAILURE;
+				}
+
+				//  Paste all data to allocated string
+				sprintf(record->rdata, "%s %s %d %d %d %d %d", mname, rname, serial, refresh, retry, expire, minimum);
+				free(mname);
+				free(rname);
+			}
 			break;
 		case DNS_TYPE_NSEC:
 			/* The RDATA of the NSEC RR is as shown below:
@@ -180,8 +273,33 @@ void translate_dns_data( DNSResourceRecordPtr record, char **data )
 			   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 			   /                       Type Bit Maps                           /
 			   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ */
-			*data = malloc(6);
-			sprintf(*data, "NSEC!");
+			{
+				uint16_t offset = pdata->offset;
+
+				char *next_domain_name = malloc(32 * sizeof(char));
+				if (next_domain_name == NULL)
+				{
+					perror("malloc");
+					return EXIT_FAILURE;
+				}
+				uint16_t next_domain_name_length = 0;
+				load_domain_name(&next_domain_name, pdata, &offset, 32, &next_domain_name_length);
+
+
+				//  TODO: skip domain name & parse type bit maps?
+
+
+				record->rdata = malloc(next_domain_name_length + 1 + strlen("*TYPES*") + 1); //  +1 whitespace, +1 '\0'
+				if (record->rdata == NULL)
+				{
+					perror("malloc");
+					free(next_domain_name);
+					return EXIT_FAILURE;
+				}
+
+				sprintf(record->rdata, "%s *TYPES*", next_domain_name);
+				free(next_domain_name);
+			}
 			break;
 		case DNS_TYPE_NSEC3:
 			/* The RDATA of the NSEC3 RR is as shown below:
@@ -207,8 +325,28 @@ void translate_dns_data( DNSResourceRecordPtr record, char **data )
 			   +-+-+-+-+-+-+-+-+
 			   |             |O|
 			   +-+-+-+-+-+-+-+-+ */
-			*data = malloc(7);
-			sprintf(*data, "NSEC3!");
+			{
+				uint16_t offset = pdata->offset;
+
+				uint8_t  algorithm  = *get_packet_data_custom(pdata, offset); offset+= sizeof(uint8_t);
+				uint8_t  flags      = *get_packet_data_custom(pdata, offset); offset+= sizeof(uint8_t);
+				uint16_t iterations = ntohs(*((uint16_t *) get_packet_data_custom(pdata, offset))); offset+= sizeof(uint16_t);
+
+
+				//  TODO: parse alt?
+				//  TODO: parse hashed owner name?
+				//  TODO: parse type bit maps?
+
+
+				record->rdata = malloc(2 * UINT8_STRLEN + UINT16_STRLEN + 3); //  +3 = +2 whitespace, +1 '\0'
+				if (record->rdata == NULL)
+				{
+					perror("malloc");
+					return EXIT_FAILURE;
+				}
+
+				sprintf(record->rdata, "%d %d %d *SALT* *HASHED_OWNER_NAME* *TYPES*", algorithm, flags, iterations);
+			}
 			break;
 		case DNS_TYPE_RRSIG:
 			/* The RDATA for an RRSIG RR consists of a 2 octet Type Covered field, a
@@ -236,8 +374,50 @@ void translate_dns_data( DNSResourceRecordPtr record, char **data )
 			   /                            Signature                          /
 			   /                                                               /
 			   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ */
-			*data = malloc(7);
-			sprintf(*data, "RRSIG!");
+			{
+				uint16_t offset = pdata->offset;
+
+				uint16_t type_covered = ntohs(*((uint16_t *) get_packet_data_custom(pdata, offset))); offset+= sizeof(uint16_t);
+				uint8_t  algorithm    = *get_packet_data_custom(pdata, offset); offset+= sizeof(uint8_t);
+				uint8_t  labels       = *get_packet_data_custom(pdata, offset); offset+= sizeof(uint8_t);
+				uint32_t ttl          = ntohl(*((uint32_t *) get_packet_data_custom(pdata, offset))); offset+= sizeof(uint32_t);
+				uint32_t expiration   = ntohl(*((uint32_t *) get_packet_data_custom(pdata, offset))); offset+= sizeof(uint32_t);
+				uint32_t inception    = ntohl(*((uint32_t *) get_packet_data_custom(pdata, offset))); offset+= sizeof(uint32_t);
+				uint16_t key_tag      = ntohs(*((uint16_t *) get_packet_data_custom(pdata, offset))); offset+= sizeof(uint16_t);
+
+				char *signer = malloc(32 * sizeof(char));
+				if (signer == NULL)
+				{
+					perror("malloc");
+					return EXIT_FAILURE;
+				}
+				uint16_t signer_length = 0;
+				load_domain_name(&signer, pdata, &offset, 32, &signer_length);
+
+				uint16_t signature_length = record->rdata_length - (pdata->offset - offset);
+				uint8_t *signature = malloc(signature_length * sizeof(uint8_t));
+				if (signature == NULL)
+				{
+					perror("malloc");
+					return EXIT_FAILURE;
+				}
+				for (uint16_t i = 0; i < signature_length; i++)
+					signature[i] = get_packet_data_custom(pdata, offset)[i];
+
+				//  Allocate string and paste data
+				record->rdata = malloc(3 * UINT8_STRLEN + UINT16_STRLEN + 3 * UINT32_STRLEN + signer_length + signature_length);
+				if (record->rdata == NULL)
+				{
+					perror("malloc");
+					free(signer);
+					free(signature);
+					return EXIT_FAILURE;
+				}
+				//sprintf(record->rdata, "%s %d %d %d %d %d %d %s %s", translate_dns_type(type_covered), algorithm, labels, ttl, expiration, inception, key_tag, signer, signature);
+				sprintf(record->rdata, "%s %d %d %d %d %d %d %s *SIGNATURE*", translate_dns_type(type_covered), algorithm, labels, ttl, expiration, inception, key_tag, signer);
+				free(signer);
+				free(signature);
+			}
 			break;
 		case DNS_TYPE_DNSKEY:
 		case DNS_TYPE_KEY:
@@ -254,34 +434,56 @@ void translate_dns_data( DNSResourceRecordPtr record, char **data )
 			   /                            Public Key                         /
 			   /                                                               /
 			   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ */
-			*data = malloc(8);
-			sprintf(*data, "DNSKEY!");
+			{
+				uint16_t offset = pdata->offset;
+
+				uint16_t flags     = ntohs(*((uint16_t *) get_packet_data_custom(pdata, offset))); offset+= sizeof(uint16_t);
+				uint8_t  protocol  = *get_packet_data_custom(pdata, offset); offset+= sizeof(uint8_t);
+				uint8_t  algorithm = *get_packet_data_custom(pdata, offset); offset+= sizeof(uint8_t);
+
+				uint16_t signature_length = record->rdata_length - (pdata->offset - offset);
+				uint8_t *signature = malloc(signature_length * sizeof(uint8_t));
+				if (signature == NULL)
+				{
+					perror("malloc");
+					return EXIT_FAILURE;
+				}
+				for (uint16_t i = 0; i < signature_length; i++)
+					signature[i] = get_packet_data_custom(pdata, offset)[i];
+
+				//  Allocate string and paste data
+				record->rdata = malloc(2 * UINT8_STRLEN + UINT16_STRLEN + signature_length);
+				if (record->rdata == NULL)
+				{
+					perror("malloc");
+					free(signature);
+					return EXIT_FAILURE;
+				}
+				//sprintf(record->rdata, "%d %d %d %s", flags, protocol, algorithm, signature);
+				sprintf(record->rdata, "%d %d %d *PUBLIC_KEY*", flags, protocol, algorithm);
+				free(signature);
+			}
 			break;
-		case DNS_TYPE_NS: // FIXME: NS load_dns_string might be necessary
 		case DNS_TYPE_TXT:
+			{
+				len = (uint16_t)(strlen((char *) get_packet_data(pdata)) + 1); // +1 '\0'
+				record->rdata = malloc(len);
+				for(int i = 0; i < len; i++)
+					(record->rdata)[i] = get_packet_data(pdata)[i];
+			}
+			break;
 		case DNS_TYPE_SPF:
 		default:
-			if (record->rdata_length)
-			{
-				len = strlen((char *) record->rdata) + 1; // +1 because of '\0'
-				*data = malloc(len);
-				for(int i = 0; i < len; i++)
-					(*data)[i] = record->rdata[i];
-
-				//memcpy(data, record->rdata, len);
-			}
-			else
-			{
-				*data = malloc(4);
-				(*data)[0] = '|';
-				(*data)[1] = '?';
-				(*data)[2] = '|';
-				(*data)[3] = '\0';
-			}
+			record->rdata = malloc(4);
+			(record->rdata)[0] = '*';
+			(record->rdata)[1] = '?';
+			(record->rdata)[2] = '*';
+			(record->rdata)[3] = '\0';
 	}
+	return EXIT_SUCCESS;
 }
 
-void load_dns_string( char **destination, PacketDataPtr pdata, uint16_t *offset_ptr, uint16_t size, uint16_t *length_ptr )
+void load_domain_name( char **destination, PacketDataPtr pdata, uint16_t *offset_ptr, uint16_t size, uint16_t *length_ptr )
 {
 	assert(destination != NULL);
 	assert(*destination != NULL);
@@ -310,7 +512,7 @@ void load_dns_string( char **destination, PacketDataPtr pdata, uint16_t *offset_
 			offset+= sizeof(uint8_t);
 
 			uint16_t recursion_offset = data;
-			load_dns_string(destination, pdata, &recursion_offset, size, &length);
+			load_domain_name(destination, pdata, &recursion_offset, size, &length);
 			break;
 		}
 		else
@@ -320,14 +522,14 @@ void load_dns_string( char **destination, PacketDataPtr pdata, uint16_t *offset_
 			{
 				DEBUG_PRINT("%d bytes wont fit in %d, increasing to %d\n", length + data + 1, size, size * 2);
 				//	Make sure, that there is enough space for the string
-				*destination = realloc(*destination, size * 2);
+				size*= 2;
+				*destination = realloc(*destination, size);
 				if (*destination == NULL)
                 {
 				    DEBUG_ERR("LOAD-DNS-STRING", "Failed to realloc string...");
 				    perror("realloc");
 				    return;
                 }
-				size*= 2;
 			}
 
 			//	Exit loop on label end
@@ -375,8 +577,9 @@ DNSPacketPtr parse_dns_packet( PacketDataPtr pdata )
 	if (packet == NULL)
 	{
 		perror("malloc");
-		exit(EXIT_FAILURE);
+		return NULL;
 	}
+	memset(packet, 0, sizeof(DNSPacket));
 
 	DNSPacketPtr data = (DNSPacketPtr) pdata->data;
 
@@ -393,28 +596,60 @@ DNSPacketPtr parse_dns_packet( PacketDataPtr pdata )
 	if (packet->question_count > 0)
 	{
 		packet->questions = malloc(packet->question_count * sizeof(DNSQueryPtr));
+		if (packet->questions == NULL)
+		{
+			perror("malloc");
+			destroy_dns_packet(packet);
+			return NULL;
+		}
+
 		for (int i = 0; i < packet->question_count; i++)
+			//  TODO: If parse fails, free
 			packet->questions[i] = parse_dns_packet_query(pdata);
 	}
 
 	if (packet->answer_count > 0)
 	{
 		packet->answers = malloc(packet->answer_count * sizeof(DNSResourceRecordPtr));
+		if (packet->answers == NULL)
+		{
+			perror("malloc");
+			destroy_dns_packet(packet);
+			return NULL;
+		}
+
 		for (int i = 0; i < packet->answer_count; i++)
+			//  TODO: If parse fails, free
 			packet->answers[i] = parse_dns_packet_resource_record(pdata);
 	}
 
 	if (packet->authority_count > 0 && DNS_PROCESS_AUTHORITIES)
 	{
 		packet->authorities = malloc(packet->authority_count * sizeof(DNSResourceRecordPtr));
+		if (packet->authorities == NULL)
+		{
+			perror("malloc");
+			destroy_dns_packet(packet);
+			return NULL;
+		}
+
 		for (int i = 0; i < packet->authority_count; i++)
+			//  TODO: If parse fails, free
 			packet->authorities[i] = parse_dns_packet_resource_record(pdata);
 	}
 
 	if (packet->additional_count > 0 && DNS_PROCESS_AUTHORITIES && DNS_PROCESS_ADDITIONALS)
 	{
 		packet->additionals = malloc(packet->additional_count * sizeof(DNSResourceRecordPtr));
+		if (packet->additionals == NULL)
+		{
+			perror("malloc");
+			destroy_dns_packet(packet);
+			return NULL;
+		}
+
 		for (int i = 0; i < packet->additional_count; i++)
+			//  TODO: If parse fails, free
 			packet->additionals[i] = parse_dns_packet_resource_record(pdata);
 	}
 
@@ -428,12 +663,18 @@ DNSQueryPtr parse_dns_packet_query( PacketDataPtr pdata )
 	if (query == NULL)
 	{
 		perror("malloc");
-		exit(EXIT_FAILURE);
+		return NULL;
 	}
 
 	uint16_t name_length = 0;
-	query->name = calloc(32, sizeof(char));
-	load_dns_string(&query->name, pdata, &pdata->offset, 32, &name_length);
+	query->name = malloc(32 * sizeof(char));
+	if (query->name == NULL)
+	{
+		perror("malloc");
+		destroy_dns_packet_query(query);
+		return NULL;
+	}
+	load_domain_name(&query->name, pdata, &pdata->offset, 32, &name_length);
 
 	memcpy(&query->record_type, get_packet_data(pdata), sizeof(uint16_t));
 	query->record_type = ntohs(query->record_type);
@@ -453,12 +694,18 @@ DNSResourceRecordPtr parse_dns_packet_resource_record( PacketDataPtr pdata )
 	if (record == NULL)
 	{
 		perror("malloc");
-		exit(EXIT_FAILURE);
+		return NULL;
 	}
 
 	uint16_t name_length = 0;
-	record->name = calloc(32, sizeof(char));
-	load_dns_string(&record->name, pdata, &pdata->offset, 32, &name_length);
+	record->name = malloc(32 * sizeof(char));
+	if (record->name == NULL)
+	{
+		perror("malloc");
+		destroy_dns_packet_resource_record(record);
+		return NULL;
+	}
+	load_domain_name(&record->name, pdata, &pdata->offset, 32, &name_length);
 
 	memcpy(&record->record_type, get_packet_data(pdata), sizeof(uint16_t));
 	record->record_type = ntohs(record->record_type);
@@ -476,29 +723,12 @@ DNSResourceRecordPtr parse_dns_packet_resource_record( PacketDataPtr pdata )
 	record->rdata_length = ntohs(record->rdata_length);
 	pdata->offset+= sizeof(uint16_t);
 
-	record->rdata = calloc(record->rdata_length, sizeof(uint8_t));
-	if (record->rdata == NULL)
+	if (load_resource_record_data(pdata, record) != EXIT_SUCCESS)
 	{
-		perror("calloc");
-		exit(EXIT_FAILURE);
+		destroy_dns_packet_resource_record(record);
+		return NULL;
 	}
-	if (record->record_type == DNS_TYPE_PTR
-		|| record->record_type == DNS_TYPE_CNAME)
-	{
-		DEBUG_LOG("DNS-RECORD-PARSE", "Loading rdata by load_dns_string...");
-		name_length = 0;
-		load_dns_string((char **) &record->rdata, pdata, &pdata->offset, record->rdata_length, &name_length);
-        DEBUG_PRINT("current contents: ");
-        for (int i = 0; i < record->rdata_length; i++)
-            DEBUG_PRINT("%#02x ", record->rdata[i]);
-        DEBUG_PRINT("\n");
-	}
-	else
-	{
-		for (int i = 0; i < record->rdata_length; i++)
-			record->rdata[i] = get_packet_data(pdata)[i];
-        pdata->offset+= record->rdata_length * sizeof(uint8_t);
-	}
+	pdata->offset+= record->rdata_length;
 
 	DEBUG_LOG("DNS-RECORD-PARSE", "Returning...");
 	return record;
@@ -509,28 +739,28 @@ void destroy_dns_packet( DNSPacketPtr packet )
 	assert(packet != NULL);
 	DEBUG_LOG("DNS-PACKET-DESTROY", "Destroying DNS packet...");
 
-	if (packet->question_count > 0)
+	if (packet->question_count > 0 && packet->questions != NULL)
 	{
 		for (int i = 0; i < packet->question_count; i++)
 			destroy_dns_packet_query(packet->questions[i]);
 		free(packet->questions);
 	}
 
-	if (packet->answer_count > 0)
+	if (packet->answer_count > 0 && packet->answers != NULL)
 	{
 		for (int i = 0; i < packet->answer_count; i++)
 			destroy_dns_packet_resource_record(packet->answers[i]);
 		free(packet->answers);
 	}
 
-	if (packet->authority_count > 0 && DNS_PROCESS_AUTHORITIES)
+	if (packet->authority_count > 0 && packet->authorities != NULL && DNS_PROCESS_AUTHORITIES)
 	{
 		for (int i = 0; i < packet->authority_count; i++)
 			destroy_dns_packet_resource_record(packet->authorities[i]);
 		free(packet->authorities);
 	}
 
-	if (packet->additional_count > 0 && DNS_PROCESS_AUTHORITIES && DNS_PROCESS_ADDITIONALS)
+	if (packet->additional_count > 0 && packet->additionals != NULL && DNS_PROCESS_AUTHORITIES && DNS_PROCESS_ADDITIONALS)
 	{
 		for (int i = 0; i < packet->additional_count; i++)
 			destroy_dns_packet_resource_record(packet->additionals[i]);
@@ -545,7 +775,8 @@ void destroy_dns_packet_query( DNSQueryPtr query )
 	assert(query != NULL);
 	DEBUG_LOG("DNS-QUERY-DESTROY", "Destroying DNS query...");
 
-	free(query->name);
+	if (query->name != NULL)
+		free(query->name);
 	free(query);
 }
 
@@ -554,8 +785,10 @@ void destroy_dns_packet_resource_record( DNSResourceRecordPtr record )
 	assert(record != NULL);
 	DEBUG_LOG("DNS-RECORD-DESTROY", "Destroying DNS resource record...");
 
-	free(record->name);
-	free(record->rdata);
+	if (record->name != NULL)
+		free(record->name);
+	if (record->rdata != NULL)
+		free(record->rdata);
 	free(record);
 }
 
@@ -620,36 +853,13 @@ void print_dns_packet_resource_record( DNSResourceRecordPtr record )
 {
 #ifdef DEBUG_PRINT_ENABLED
 	fprintf(
-			stderr, "DNS_PACKET_RESOURCE_RECORD: {\n\tname\t%s\n\ttype\t%d (%s)\n\tclass\t%#x (%s)\n\tttl\t%d\n\trdata_length\t%d\n}\n",
+			stderr, "DNS_PACKET_RESOURCE_RECORD: {\n\tname\t%s\n\ttype\t%d (%s)\n\tclass\t%#x (%s)\n\tttl\t%d\n\trdata_length\t%d\n\trdata\t%s\n}\n",
 			record->name,
 			record->record_type, translate_dns_type(record->record_type),
 			record->record_class, "-",
 			record->ttl,
-			record->rdata_length
+			record->rdata_length,
+			record->rdata
 	);
-	if (record->record_type == DNS_TYPE_A)
-	{
-		fprintf(
-				stderr, "DNS_PACKET_RESOURCE_RECORD_DATA (IPv4): %hu.%hu.%hu.%hu\n",
-				record->rdata[0],
-				record->rdata[1],
-				record->rdata[2],
-				record->rdata[3]
-		);
-	}
-	else if (record->record_type == DNS_TYPE_AAAA)
-	{
-		fprintf(
-				stderr, "DNS_PACKET_RESOURCE_RECORD_DATA (IPv6): ?\n"
-		);
-	}
-	else if (record->record_type == DNS_TYPE_CNAME || record->record_type == DNS_TYPE_PTR || record->record_type == DNS_TYPE_TXT)
-	{
-		fprintf(
-				stderr, "DNS_PACKET_RESOURCE_RECORD_DATA (%s): '%s'\n",
-				record->record_type == DNS_TYPE_CNAME ? "CNAME" : record->record_type == DNS_TYPE_PTR ? "PTR" : "TXT",
-				record->rdata
-		);
-	}
 #endif
 }

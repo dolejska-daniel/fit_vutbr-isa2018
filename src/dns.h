@@ -83,8 +83,8 @@
 #define DNS_CLASS_NONE	254	///< None
 #define DNS_CLASS_ANY	255	///< Any
 
-#define DNS_PROCESS_AUTHORITIES 0
-#define DNS_PROCESS_ADDITIONALS 0
+#define DNS_PROCESS_AUTHORITIES 1
+#define DNS_PROCESS_ADDITIONALS 1
 
 
 /**
@@ -107,7 +107,7 @@ struct dns_rr {
 	uint16_t	record_class;
 	uint32_t	ttl;
 	uint16_t	rdata_length;
-	uint8_t		*rdata;
+	char		*rdata;
 };
 typedef struct dns_rr  DNSResourceRecord;
 typedef struct dns_rr* DNSResourceRecordPtr;
@@ -154,10 +154,11 @@ char *translate_dns_type( uint16_t type );
  * Prelozi data DNS odpovedi do odpovidajici podoby a ulozi jej do znakoveho
  * retezce, ktery dynamicky alokuje.
  *
+ * @param pdata
  * @param record
- * @param data
+ * @return exit status code
  */
-void translate_dns_data( DNSResourceRecordPtr record, char **data );
+int load_resource_record_data( PacketDataPtr pdata, DNSResourceRecordPtr record );
 
 /**
  * Prekopiruje znakovy retezec z daneho offsetu (offset) dane DNS odpovedi
@@ -170,7 +171,7 @@ void translate_dns_data( DNSResourceRecordPtr record, char **data );
  * @param size
  * @param length_ptr
  */
-void load_dns_string( char **destination, PacketDataPtr pdata, uint16_t *offset, uint16_t size, uint16_t *length_ptr );
+void load_domain_name( char **destination, PacketDataPtr pdata, uint16_t *offset, uint16_t size, uint16_t *length_ptr );
 
 /**
  * Ziska velikost "uvodni" (pred queries, answers, ...) casti DNS packetu.

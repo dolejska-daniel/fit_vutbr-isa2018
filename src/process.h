@@ -57,6 +57,13 @@ int process_traffic( uint8_t *data );
 void process_dns_traffic( DNSPacketPtr dns );
 
 /**
+ * Zpracovani (ulozeni do tabulky) konkretniho resource record DNS odpovedi.
+ *
+ * @param record
+ */
+void process_dns_resource_record( DNSResourceRecordPtr record );
+
+/**
  * Odesle aktualni statistiky.
  *
  * @param clear_table

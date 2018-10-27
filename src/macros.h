@@ -26,4 +26,8 @@
 #define ERR(...) do{ fprintf( stderr, __VA_ARGS__ ); } while( 0 )
 #define OUTPUT(...) do{ fprintf( stdout, __VA_ARGS__ ); } while( 0 )
 
+#define UINT8_STRLEN    (3 * sizeof(uint8_t)  + 2)
+#define UINT16_STRLEN   (3 * sizeof(uint16_t) + 2)
+#define UINT32_STRLEN   (3 * sizeof(uint32_t) + 2)
+
 #endif //_MACROS_H

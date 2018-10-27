@@ -289,27 +289,43 @@ void process_dns_traffic( DNSPacketPtr dns )
 {
 	for (int i = 0; i < dns->answer_count; i++)
 	{
-		DNSResourceRecordPtr record = dns->answers[i];
-
-		char *data; translate_dns_data(record, &data);
-		char *type = translate_dns_type(dns->answers[i]->record_type);
-
-		size_t entry_length = strlen(record->name) + 1 + strlen(type) + 1 + strlen(data); // +1s for whitespaces
-		char *entry = malloc(entry_length + 1); // +1 for '\0'
-		sprintf(entry, "%s %s %s", record->name, type, data);
-
-		printf("\33[2K\r");
-		fprintf(stdout, "%s +1", entry);
-		fflush(stdout);
-
-		//  Do not free created items, item key will be freed before cleaning the table
-		if (htIncrease(entry_table, entry) != ITEM_STATUS_CREATED)
-			//  Free entry for *UPDATED* item
-			free(entry);
-
-		//  Free translated DNS data
-		free(data);
+		process_dns_resource_record(dns->answers[i]);
 	}
+
+	for (int i = 0; i < dns->authority_count; i++)
+	{
+		process_dns_resource_record(dns->authorities[i]);
+	}
+}
+
+void process_dns_resource_record( DNSResourceRecordPtr record )
+{
+	char *type = translate_dns_type(record->record_type);
+	size_t entry_length = strlen(record->name) + 1 + strlen(type) + 1 + strlen(record->rdata); // +1s for whitespaces
+
+	char *entry;
+	if (record->record_type == DNS_TYPE_A
+	    || record->record_type == DNS_TYPE_AAAA
+	    || record->record_type == DNS_TYPE_PTR
+	    || record->record_type == DNS_TYPE_CNAME)
+	{
+		entry = malloc(entry_length + 1); // +1 for '\0'
+		sprintf(entry, "%s %s %s", record->name, type, record->rdata);
+	}
+	else
+	{
+		entry = malloc(entry_length + 1 + 2); // +1 for '\0', +2 for \"\"
+		sprintf(entry, "%s %s \"%s\"", record->name, type, record->rdata);
+	}
+
+	printf("\33[2K\r");
+	fprintf(stdout, "%s +1", entry);
+	fflush(stdout);
+
+	//  Do not free created items, item key will be freed before cleaning the table
+	if (htIncrease(entry_table, entry) != ITEM_STATUS_CREATED)
+		//  Free entry for *UPDATED* item
+		free(entry);
 }
 
 void send_statistics( short clear_table, short force_print )
