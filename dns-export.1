@@ -1,32 +1,56 @@
 .TH DNS-EXPORT 1
 
 .SH NAME
-dns-export \- creates statistics of DNS trafficr
+dns-export \- creates aggregated statistics of DNS traffic
 
 .SH SYNOPSIS
 .B dns-export
-[\fB\-r\fR \ffile.pcap\fR]
-[\fB\-i\fR \finterface\fR]
-[\fB\-s\fR \fsyslog-server\fR]
-[\fB\-t\fR \fseconds\fR]
+[\fB\-r\fR \fIfilepath\fR]
+[\fB\-i\fR \fIinterface\fR]
+[\fB\-s\fR \fIsyslog-server\fR]
+[\fB\-t\fR \fIseconds\fR]
 
 .SH DESCRIPTION
 .B dns-export
-creates statistics of DNS traffic either from .pcap file or by listening to incoming traffic on given interface.
+creates aggregated statistics of DNS traffic either from .pcap file or by
+listening to DNS traffic on specified interface.
+
+Statistics can be displayed in real-time, aggregated in given time intervals and
+also sent to a syslog-server.
+
+Statistics can also be printed at any time by sending \fBSIGUSR1\fR to the
+application process. No statistics are lost after doing this - they will still
+be printed out or sent to the syslog-server at the end of the time interval.
 
 .SH OPTIONS
 .TP
-.BR \-r \ffile.pcap\fR
-Processes specified .pcap file.
+.BR \-r " " \fIfilepath\fR
+Tells application to process a file. Its value - \fIfilepath\fR should contain
+path to readable .pcap file. Application will try to open provided file and
+process it.
+
+If no time interval (\fB\-t\fR) is specified, then the whole file is processed
+and its statistics are then sent to either specified syslog-server (\fB\-s\fR)
+or stdout.
+
+This option \fBcannot\fR be combined with \fB\-i\fR option.
 
 .TP
-.BR \-i \finterface\fR
-Starts listening on specified interface for DNS traffic.
+.BR \-i " " \fIinterface\fR
+Starts listening on specified \fIinterface\fR for DNS traffic - using application with
+this option \fBrequires superuser privileges\fR otherwise "Operation not
+permitted" error is received on program run.
+
+This option \fBcannot\fR be combined with \fB\-r\fR option.
 
 .TP
-.BR \-s \fsyslog-server\fR
-Hostname/IPv4/IPv6 address of syslog server.
+.BR \-s " " \fIsyslog-server\fR
+This option specified address of syslog server and enables application to send
+statistics to this server. Its value \fIsyslog-server\fR can contain either
+hostname or IPv4 or IPv6 address.
 
 .TP
-.BR \-t \fseconds\fR
-Specifies interval for statistics aggregation.
+.BR \-t " " \fItime\fR
+Specifies time interval for statistics aggregation. Its value \fItime\fR contains
+interval's length in seconds. After this interval the application automatically
+sends aggregated statistics either to syslog-server or stdout.

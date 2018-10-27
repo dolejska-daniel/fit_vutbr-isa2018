@@ -4,14 +4,16 @@
 
 ## Omezení projektu
 
-Zpracovává pouze `IPv4` komunikaci používající protokol `UDP`.
+Spolehlivě zpracovává pouze `IPv4` komunikaci používající protokol `UDP`. Protokol `TCP` není plně podporován.
 
 
 ## Práce s programem
 
 ### Překlad programu
 
-_TBD_
+Pro překlad programu je použit CMake. K projektu je připojen i výchozí `Makefile`
+(vygenerovaný za pomoci CMake) - pro překlad tedy stačí jednoduchý příkaz `make`
+popřípadě pak `cmake ./ && cmake --build ./`.
 
 
 ### Spuštění programu
@@ -31,6 +33,7 @@ Pro správné spuštění program vyžaduje alespoň přepínač `-r` nebo `-i`,
 
 ***Pokud není použit při použití přepínače `-r`, jsou statistiky vypočteny pro celý soubor. Jinak jsou použity časové rozdíly mezi pakety.
 
+_Další informace v MAN page `dns-export.1`._
 
 ### Běh programu
 
@@ -51,19 +54,36 @@ Tabulka statistik nebude vyprázdněna a na syslog server (v případě, že je 
 ```
 
 **$MESSAGE**:
+
+Pro záznamy `A`, `AAAA`, `CNAME`, `NS` a `PTR` platí následující formát:
 ```php
 $DOMAIN_NAME $RR_TYPE $RR_RDATA $COUNT
+```
+Pro ostatní pak:
+```php
+$DOMAIN_NAME $RR_TYPE "$RR_RDATA" $COUNT
 ```
 
 
 #### Standardní výstup
 
-Výpis statistik na standardní výstup probíhá na základě následujícího formátu:
+Výpis statistik na standardní výstup probíhá na základě následujícího formátu
+(čísla v závorkách reprezentují počet výskytů vrámci jedoho výpisu):
 
 ```php
 $TITLE\n (1)
 $MESSAGE\n (0-n)
-\n
+\n (1)
+```
+
+K výpisu statistik dojde buď na konci časového intervalu pro agregaci statistik,
+v případě dokončení zpracování `.pcap` souboru či při zaslání `SIGUSR1` signálu.
+
+Program na `stdout` dále vypisuje jeden aktivní řádek, jehož obsah mění
+v závislosti na posledním zpracovaném DNS záznamu. Před výpisem statistik jej
+program automaticky maže. Řádek se řídí následujícím formátem:
+```php
+$MESSAGE +1
 ```
 
 

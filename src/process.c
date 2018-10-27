@@ -306,8 +306,9 @@ void process_dns_resource_record( DNSResourceRecordPtr record )
 	char *entry;
 	if (record->record_type == DNS_TYPE_A
 	    || record->record_type == DNS_TYPE_AAAA
-	    || record->record_type == DNS_TYPE_PTR
-	    || record->record_type == DNS_TYPE_CNAME)
+	    || record->record_type == DNS_TYPE_NS
+	    || record->record_type == DNS_TYPE_CNAME
+	    || record->record_type == DNS_TYPE_PTR)
 	{
 		entry = malloc(entry_length + 1); // +1 for '\0'
 		sprintf(entry, "%s %s %s", record->name, type, record->rdata);
