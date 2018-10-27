@@ -165,12 +165,12 @@ void translate_dns_data( DNSResourceRecordPtr record, char **data );
  * nacteneho retezce vrati v promenne length_ptr.
  *
  * @param destination
- * @param packet
+ * @param pdata
  * @param offset
  * @param size
  * @param length_ptr
  */
-void load_dns_string( char **destination, UDPPacketPtr packet, uint16_t *offset, uint16_t size, uint16_t *length_ptr );
+void load_dns_string( char **destination, PacketDataPtr pdata, uint16_t *offset, uint16_t size, uint16_t *length_ptr );
 
 /**
  * Ziska velikost "uvodni" (pred queries, answers, ...) casti DNS packetu.
@@ -182,28 +182,28 @@ size_t get_dns_packet_head_size();
 /**
  * Alokuje a inicializuje datovou strukturu pro DNS packet dle prijatych dat.
  *
- * @param packet_data
+ * @param pdata
  * @return DNSPacketPtr
  */
-DNSPacketPtr parse_dns_packet( UDPPacketPtr udp_packet );
+DNSPacketPtr parse_dns_packet( PacketDataPtr pdata );
 
 /**
  * Alokuje a inicializuje datovou strukturu pro Query v DNS packetu dle
  * prijatych dat.
  *
- * @param udp_packet
+ * @param pdata
  * @return DNSQueryPtr
  */
-DNSQueryPtr parse_dns_packet_query( UDPPacketPtr udp_packet );
+DNSQueryPtr parse_dns_packet_query( PacketDataPtr pdata );
 
 /**
  * Alokuje a inicializuje datovou strukturu pro Resource Record v DNS packetu
  * dle prijatych dat.
  *
- * @param udp_packet
+ * @param pdata
  * @return DNSResourceRecordPtr
  */
-DNSResourceRecordPtr parse_dns_packet_resource_record( UDPPacketPtr udp_packet );
+DNSResourceRecordPtr parse_dns_packet_resource_record( PacketDataPtr pdata );
 
 /**
  * Zrusi alokovanou strukturu pro DNS packet.

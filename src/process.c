@@ -206,15 +206,17 @@ int process_traffic( uint8_t *data )
 			return EXIT_FAILURE;
 		}
 
-		//  TODO: Create common packet from TCP packet
+		print_tcp_header_struct(packet->tcp_header);
 
-		/*
+		//  TODO: Process all related TCP packets
+
 		if (packet->tcp_header->source == DNS_PORT)
 		{
 			DEBUG_LOG("PROCESS[TCP]", "Packet destination: DNS PORT...");
 
+		/*
 			//  Parse DNS part of the packet
-			DNSPacketPtr dns = parse_dns_packet(packet);
+			DNSPacketPtr dns = parse_dns_packet(packet->data);
 			if (dns == NULL)
 			{
 				ERR("Failed to process DNS packet, application is unable to continue and will now exit.\n");
@@ -229,11 +231,11 @@ int process_traffic( uint8_t *data )
 
 			//	DNS packet is no longer needed
 			destroy_dns_packet(dns);
+		 */
 		}
 
-		//	UDP packet is no longer needed
-		destroy_udp_packet(packet);
-		 */
+		//	TCP packet is no longer needed
+		destroy_tcp_packet(packet);
 
 		return EXIT_SUCCESS;
 	}
@@ -248,14 +250,12 @@ int process_traffic( uint8_t *data )
 			return EXIT_FAILURE;
 		}
 
-		//  TODO: Create common packet from UDP packet
-
 		if (packet->udp_header->source == DNS_PORT)
 		{
 			DEBUG_LOG("PROCESS[UDP]", "Packet destination: DNS PORT...");
 
 			//  Parse DNS part of the packet
-			DNSPacketPtr dns = parse_dns_packet(packet);
+			DNSPacketPtr dns = parse_dns_packet(packet->data);
 			if (dns == NULL)
 			{
 				ERR("Failed to process DNS packet, application is unable to continue and will now exit.\n");

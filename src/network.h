@@ -96,8 +96,7 @@ struct tcp_packet {
 	struct ethhdr 	*eth_header;	///< Ehternet header structure
 	struct iphdr  	*ip_header;		///< IP header structure
 	struct tcphdr 	*tcp_header;	///< TCP header structure
-	uint8_t 		*data;			///< Data
-	uint16_t 		offset;			///< Data read offset
+	PacketDataPtr   data;           ///< Packet data
 };
 typedef struct tcp_packet  TCPPacket;
 typedef struct tcp_packet* TCPPacketPtr;
@@ -118,23 +117,6 @@ TCPPacketPtr parse_tcp_packet( uint8_t *packet_data );
  */
 void destroy_tcp_packet( TCPPacketPtr packet );
 
-/**
- * Ziska ukazatel na data TCP packetu pro aktualni pozici.
- *
- * @param packet
- * @return uint8_t*
- */
-uint8_t *get_tcp_packet_data( TCPPacketPtr packet );
-
-/**
- * Ziska ukazatel na data TCP packetu pro vlastni pozici.
- *
- * @param packet
- * @param offset
- * @return uint8_t*
- */
-uint8_t *get_tcp_packet_data_custom( TCPPacketPtr packet, uint16_t offset );
-
 
 // ///////////////////////////////////////////////////////////////////////
 //      UDP
@@ -144,8 +126,7 @@ struct udp_packet {
 	struct ethhdr 	*eth_header;	///< Ehternet header structure
 	struct iphdr  	*ip_header;		///< IP header structure
 	struct udphdr 	*udp_header;	///< UDP header structure
-	uint8_t 		*data;			///< Data
-	uint16_t 		offset;			///< Data read offset
+	PacketDataPtr   data;           ///< Packet data
 };
 typedef struct udp_packet  UDPPacket;
 typedef struct udp_packet* UDPPacketPtr;
@@ -165,23 +146,6 @@ UDPPacketPtr parse_udp_packet( uint8_t *packet_data );
  * @param packet
  */
 void destroy_udp_packet( UDPPacketPtr packet );
-
-/**
- * Ziska ukazatel na data UDP packetu pro aktualni pozici.
- *
- * @param packet
- * @return uint8_t*
- */
-uint8_t *get_udp_packet_data( UDPPacketPtr packet );
-
-/**
- * Ziska ukazatel na data UDP packetu pro vlastni pozici.
- *
- * @param packet
- * @param offset
- * @return uint8_t*
- */
-uint8_t *get_udp_packet_data_custom( UDPPacketPtr packet, uint16_t offset );
 
 
 // ///////////////////////////////////////////////////////////////////////

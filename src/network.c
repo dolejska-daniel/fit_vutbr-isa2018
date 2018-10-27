@@ -61,6 +61,7 @@ PacketDataPtr create_packet_data(uint8_t *data, uint16_t offset)
 
 void destroy_packet_data( PacketDataPtr pdata )
 {
+	DEBUG_LOG("PACKET-DATA-DESTROY", "Destroying packet data...");
     free(pdata);
 }
 
@@ -94,8 +95,12 @@ TCPPacketPtr parse_tcp_packet( uint8_t *packet_data )
     packet->eth_header = get_eth_header(packet_data);
     packet->ip_header  = get_ip_header(packet_data);
     packet->tcp_header = get_tcp_header(packet_data);
-    packet->data       = packet_data + get_header_sizes();
-    packet->offset     = 0;
+    packet->data       = create_packet_data(packet_data + get_header_sizes(), 0);
+    if (packet->data == NULL)
+    {
+    	destroy_tcp_packet(packet);
+    	return NULL;
+    }
 
     return packet;
 }
@@ -105,17 +110,8 @@ void destroy_tcp_packet( TCPPacketPtr packet )
     assert(packet != NULL);
 
     DEBUG_LOG("TCP-PACKET-DESTROY", "Destroying TCP packet...");
+	destroy_packet_data(packet->data);
     free(packet);
-}
-
-uint8_t *get_tcp_packet_data( TCPPacketPtr packet )
-{
-    return packet->data + packet->offset;
-}
-
-uint8_t *get_tcp_packet_data_custom( TCPPacketPtr packet, uint16_t offset )
-{
-    return packet->data + offset;
 }
 
 
@@ -136,8 +132,12 @@ UDPPacketPtr parse_udp_packet( uint8_t *packet_data )
     packet->eth_header = get_eth_header(packet_data);
     packet->ip_header  = get_ip_header(packet_data);
     packet->udp_header = get_udp_header(packet_data);
-    packet->data       = packet_data + get_header_sizes();
-    packet->offset     = 0;
+	packet->data       = create_packet_data(packet_data + get_header_sizes(), 0);
+	if (packet->data == NULL)
+	{
+		destroy_udp_packet(packet);
+		return NULL;
+	}
 
     return packet;
 }
@@ -147,17 +147,8 @@ void destroy_udp_packet( UDPPacketPtr packet )
 	assert(packet != NULL);
 
 	DEBUG_LOG("UDP-PACKET-DESTROY", "Destroying UDP packet...");
+	destroy_packet_data(packet->data);
     free(packet);
-}
-
-uint8_t *get_udp_packet_data( UDPPacketPtr packet )
-{
-    return packet->data + packet->offset;
-}
-
-uint8_t *get_udp_packet_data_custom( UDPPacketPtr packet, uint16_t offset )
-{
-    return packet->data + offset;
 }
 
 
