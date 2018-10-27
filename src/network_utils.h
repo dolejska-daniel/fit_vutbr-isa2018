@@ -23,31 +23,12 @@
 #include <netinet/udp.h>
 #include <netinet/tcp.h>
 #include <netdb.h>
+#include "network.h"
 
 
-typedef struct sockaddr_in SocketAddress;
-typedef struct sockaddr_in *SocketAddressPtr;
-
-
-/**
- * Zpracuje textovy hostname a do predpripravene struktury ulozi jeho IP adresu,
- * adresa muze byt IPv4 i IPv6.
- *
- * @param address
- * @param target_hostname
- * @return exit status code
- */
-int process_hostname( SocketAddressPtr address, char *target_hostname );
-
-/**
- * Zpracuje poskytnutou IP adresu v textovem formatu (zpracuje i hostname),
- * a ulozi jej v patricnem formatu do predpripravene struktury.
- *
- * @param address
- * @param target_address
- * @return exit status code
- */
-int process_address( SocketAddressPtr address, char *target_address );
+// ///////////////////////////////////////////////////////////////////////
+//      PROTOCOL PROCESSING
+// ///////////////////////////////////////////////////////////////////////
 
 /**
  * Ziska protokol na L3 vrstve (sitova). IPv4, IPv6, ARP, RIP, ...
@@ -64,5 +45,35 @@ uint16_t get_packet_L3_protocol( const uint8_t *packet );
  * @return uint16_t
  */
 uint16_t get_packet_L4_protocol( const uint8_t *packet );
+
+
+// ///////////////////////////////////////////////////////////////////////
+//      ADDRESS PROCESSING
+// ///////////////////////////////////////////////////////////////////////
+
+typedef struct sockaddr_in SocketAddress;
+typedef struct sockaddr_in *SocketAddressPtr;
+
+/**
+ * Zpracuje textovy hostname a do predpripravene struktury ulozi jeho IP adresu,
+ * adresa muze byt IPv4 i IPv6.
+ *
+ * @param target_hostname
+ * @param address
+ * @return exit status code
+ */
+int hostname_to_netaddress( const char *target_hostname, SocketAddressPtr address );
+
+/**
+ * Zpracuje poskytnutou IP adresu/hostname v textovem formatu, a ulozi jej
+ * v patricnem formatu do predpripravene struktury (nebude alokovana).
+ *
+ * @see hostname_to_netaddress
+ *
+ * @param target_address
+ * @param address
+ * @return exit status code
+ */
+int straddress_to_netaddress( const char *target_address, SocketAddressPtr address );
 
 #endif //_NETWORK_UTILS_H

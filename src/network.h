@@ -44,6 +44,51 @@ size_t get_header_sizes();
 
 
 // ///////////////////////////////////////////////////////////////////////
+//      PACKET DATA
+// ///////////////////////////////////////////////////////////////////////
+
+struct packet_data {
+	uint8_t     *data;	///< Data
+	uint16_t    offset;	///< Data read offset
+};
+typedef struct packet_data  PacketData;
+typedef struct packet_data* PacketDataPtr;
+
+/**
+ * Alokuje a inicializuje datovou strukturu reprezentujici data packetu.
+ *
+ * @param data
+ * @param offset
+ * @return PacketDataPtr
+ */
+PacketDataPtr create_packet_data(uint8_t *data, uint16_t offset);
+
+/**
+ * Zrusi alokovanou strukturu reprezentujici data packetu.
+ *
+ * @param packet
+ */
+void destroy_packet_data( PacketDataPtr pdata );
+
+/**
+ * Ziska ukazatel na data packetu pro aktualni pozici.
+ *
+ * @param packet
+ * @return uint8_t*
+ */
+uint8_t *get_packet_data( PacketDataPtr pdata );
+
+/**
+ * Ziska ukazatel na data packetu pro vlastni pozici.
+ *
+ * @param packet
+ * @param offset
+ * @return uint8_t*
+ */
+uint8_t *get_packet_data_custom( PacketDataPtr pdata, uint16_t offset );
+
+
+// ///////////////////////////////////////////////////////////////////////
 //      TCP
 // ///////////////////////////////////////////////////////////////////////
 
@@ -74,7 +119,7 @@ TCPPacketPtr parse_tcp_packet( uint8_t *packet_data );
 void destroy_tcp_packet( TCPPacketPtr packet );
 
 /**
- * Ziska ukazatel na data TCP packetu na aktualni pozici.
+ * Ziska ukazatel na data TCP packetu pro aktualni pozici.
  *
  * @param packet
  * @return uint8_t*
@@ -82,7 +127,7 @@ void destroy_tcp_packet( TCPPacketPtr packet );
 uint8_t *get_tcp_packet_data( TCPPacketPtr packet );
 
 /**
- * Ziska ukazatel na data TCP packetu na vlastni pozici.
+ * Ziska ukazatel na data TCP packetu pro vlastni pozici.
  *
  * @param packet
  * @param offset
@@ -122,7 +167,7 @@ UDPPacketPtr parse_udp_packet( uint8_t *packet_data );
 void destroy_udp_packet( UDPPacketPtr packet );
 
 /**
- * Ziska ukazatel na data UDP packetu na aktualni pozici.
+ * Ziska ukazatel na data UDP packetu pro aktualni pozici.
  *
  * @param packet
  * @return uint8_t*
@@ -130,7 +175,7 @@ void destroy_udp_packet( UDPPacketPtr packet );
 uint8_t *get_udp_packet_data( UDPPacketPtr packet );
 
 /**
- * Ziska ukazatel na data UDP packetu na vlastni pozici.
+ * Ziska ukazatel na data UDP packetu pro vlastni pozici.
  *
  * @param packet
  * @param offset

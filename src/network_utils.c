@@ -6,12 +6,32 @@
 #define DEBUG_LOG_ENABLED
 #define DEBUG_ERR_ENABLED
 
+#include <assert.h>
 #include "network_utils.h"
 #include "macros.h"
 #include "dns.h"
 
 
-int process_hostname( SocketAddressPtr address, char *target_hostname )
+// ///////////////////////////////////////////////////////////////////////
+//      PROTOCOL PROCESSING
+// ///////////////////////////////////////////////////////////////////////
+
+uint16_t get_packet_L3_protocol( const uint8_t *packet )
+{
+	return ntohs(((struct ethhdr *) packet)->h_proto);
+}
+
+uint16_t get_packet_L4_protocol( const uint8_t *packet )
+{
+	return ((struct iphdr *) (packet + get_eth_header_size()))->protocol;
+}
+
+
+// ///////////////////////////////////////////////////////////////////////
+//      ADDRESS PROCESSING
+// ///////////////////////////////////////////////////////////////////////
+
+int hostname_to_netaddress( const char *target_hostname, SocketAddressPtr address )
 {
 	/************************************************************************
 	 * Castecne prevzato z:
@@ -41,7 +61,7 @@ int process_hostname( SocketAddressPtr address, char *target_hostname )
 	return EXIT_FAILURE;
 }
 
-int process_address( SocketAddressPtr address, char *target_address )
+int straddress_to_netaddress( const char *target_address, SocketAddressPtr address )
 {
 	if (inet_pton(AF_INET, target_address, &address->sin_addr))
 	{
@@ -58,18 +78,8 @@ int process_address( SocketAddressPtr address, char *target_address )
 	{
 		//  target_address is neither valid IPv4 nor IPv6 address
 		//  lets try using it as hostname
-		return process_hostname(address, target_address);
+		return hostname_to_netaddress(target_address, address);
 	}
 
 	return EXIT_SUCCESS;
-}
-
-uint16_t get_packet_L3_protocol( const uint8_t *packet )
-{
-	return ntohs(((struct ethhdr *) packet)->h_proto);
-}
-
-uint16_t get_packet_L4_protocol( const uint8_t *packet )
-{
-	return ((struct iphdr *) (packet + get_eth_header_size()))->protocol;
 }

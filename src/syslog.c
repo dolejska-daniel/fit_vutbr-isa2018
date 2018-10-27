@@ -34,7 +34,7 @@ SyslogSenderPtr init_syslog_sender( char *server )
 	}
 	memset(sender, 0, sizeof(SyslogSender));
 
-	if (process_address(&sender->receiver, server) != EXIT_SUCCESS)
+	if (straddress_to_netaddress(server, &sender->receiver) != EXIT_SUCCESS)
 	{
 		destroy_syslog_sender(sender);
 		return NULL;

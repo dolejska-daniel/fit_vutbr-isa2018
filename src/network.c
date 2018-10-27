@@ -40,6 +40,44 @@ size_t get_header_sizes()
 
 
 // ///////////////////////////////////////////////////////////////////////
+//      PACKET DATA
+// ///////////////////////////////////////////////////////////////////////
+
+PacketDataPtr create_packet_data(uint8_t *data, uint16_t offset)
+{
+    DEBUG_LOG("PACKET-DATA-CREATE", "Creating packet data holder...");
+    PacketDataPtr pdata = (PacketDataPtr) malloc(sizeof(PacketData));
+    if (pdata == NULL)
+    {
+        perror("malloc");
+        return NULL;
+    }
+
+    pdata->data   = data;
+    pdata->offset = offset;
+
+    return pdata;
+}
+
+void destroy_packet_data( PacketDataPtr pdata )
+{
+    free(pdata);
+}
+
+uint8_t *get_packet_data( PacketDataPtr pdata )
+{
+    assert(pdata != NULL);
+    return pdata->data + pdata->offset;
+}
+
+uint8_t *get_packet_data_custom( PacketDataPtr pdata, uint16_t offset )
+{
+    assert(pdata != NULL);
+    return pdata->data + offset;
+}
+
+
+// ///////////////////////////////////////////////////////////////////////
 //      TCP
 // ///////////////////////////////////////////////////////////////////////
 
@@ -50,7 +88,7 @@ TCPPacketPtr parse_tcp_packet( uint8_t *packet_data )
     if (packet == NULL)
     {
         perror("malloc");
-        exit(EXIT_FAILURE);
+        return NULL;
     }
 
     packet->eth_header = get_eth_header(packet_data);
@@ -92,7 +130,7 @@ UDPPacketPtr parse_udp_packet( uint8_t *packet_data )
 	if (packet == NULL)
 	{
 		perror("malloc");
-		exit(EXIT_FAILURE);
+        return NULL;
 	}
 
     packet->eth_header = get_eth_header(packet_data);
