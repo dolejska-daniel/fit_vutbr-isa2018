@@ -3,12 +3,14 @@
 .SH NAME
 dns-export \- creates aggregated statistics of DNS traffic
 
+
 .SH SYNOPSIS
 .B dns-export
 [\fB\-r\fR \fIfilepath\fR]
 [\fB\-i\fR \fIinterface\fR]
 [\fB\-s\fR \fIsyslog-server\fR]
 [\fB\-t\fR \fIseconds\fR]
+
 
 .SH DESCRIPTION
 .B dns-export
@@ -21,6 +23,7 @@ also sent to a syslog-server.
 Statistics can also be printed at any time by sending \fBSIGUSR1\fR to the
 application process. No statistics are lost after doing this - they will still
 be printed out or sent to the syslog-server at the end of the time interval.
+
 
 .SH OPTIONS
 .TP
@@ -54,3 +57,25 @@ hostname or IPv4 or IPv6 address.
 Specifies time interval for statistics aggregation. Its value \fItime\fR contains
 interval's length in seconds. After this interval the application automatically
 sends aggregated statistics either to syslog-server or stdout.
+
+
+.SH EXAMPLES
+Monitoring DNS traffic on interface wlp7s0 and printing its aggregated
+statistics each two minutes:
+.PP
+.nf
+.RS
+sudo dns-export -i wlp7s0 -t 120
+.RE
+.fi
+.PP
+
+Processing DNS traffic from file dns.pcap and sending its aggregated statistics
+to syslog server at 192.168.101.130 each 5 minutes:
+.PP
+.nf
+.RS
+dns-export -r dns.pcap -s 192.168.101.130 -t 300
+.RE
+.fi
+.PP
