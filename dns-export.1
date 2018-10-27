@@ -65,17 +65,18 @@ statistics each two minutes:
 .PP
 .nf
 .RS
-sudo dns-export -i wlp7s0 -t 120
+sudo ./dns-export -i wlp7s0 -t 120
 .RE
 .fi
 .PP
 
 Processing DNS traffic from file dns.pcap and sending its aggregated statistics
-to syslog server at 192.168.101.130 each 5 minutes:
+to syslog server at 192.168.101.130 each 5 minutes (time is taken from the packet
+timestamp):
 .PP
 .nf
 .RS
-dns-export -r dns.pcap -s 192.168.101.130 -t 300
+./dns-export -r ./dns.pcap -s 192.168.101.130 -t 300
 .RE
 .fi
 .PP

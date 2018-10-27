@@ -18,7 +18,8 @@ popřípadě pak `cmake ./ && cmake --build ./`.
 
 ### Spuštění programu
 
-Pro správné spuštění program vyžaduje alespoň přepínač `-r` nebo `-i`, k dispozici jsou následující přepínače:
+Pro správné spuštění program vyžaduje alespoň přepínač `-r` nebo `-i`,
+k dispozici jsou následující přepínače:
 
 | Přepínač         | Argument                         | Význam
 |------------------|----------------------------------|--------
@@ -31,19 +32,38 @@ Pro správné spuštění program vyžaduje alespoň přepínač `-r` nebo `-i`,
 
 **Pokud není použit jsou statistiky vypsány na standardní výstup (forma viz kapitola [Výstup](#vystup)).
 
-***Pokud není použit při použití přepínače `-r`, jsou statistiky vypočteny pro celý soubor. Jinak jsou použity časové rozdíly mezi pakety.
+***Pokud není použit při použití přepínače `-r`, jsou statistiky vypočteny pro celý soubor.
+Jinak jsou použity časové rozdíly mezi pakety.
 
 _Další informace v MAN page `dns-export.1`._
 
+
+#### Příklad
+
+Monitorování provozu na rozhraní `wlp7s0` a výpis agregovaných statistik každé dvě minuty:
+```
+sudo ./dns-export -i wlp7s0 -t 120
+```
+
+Zpracování souboru `dns.pcap` a odesílání agregovaných statistik na syslog server
+běžícím na 192.168.101.130 každých 5 minut (čas odesílání statistik se řídí časy
+uvedenými u jednotlivých packetů):
+```
+./dns-export -r ./dns.pcap -s 192.168.101.130 -t 300
+```
+
+
 ### Běh programu
 
-Kdykoliv za běhu programu je možné procesu odeslat signál `SIGUSR1`, který na standardní výstup vypíše statistiky provozu v rámci aktuálního časového intervalu.
+Kdykoliv za běhu programu je možné procesu odeslat signál `SIGUSR1`, který
+na standardní výstup vypíše statistiky provozu v rámci aktuálního časového intervalu.
 
 ```shell
 sudo kill -s USR1 $(ps -aux | grep [d]ns-export | awk '{ print $2 }')
 ```
 
-Tabulka statistik nebude vyprázdněna a na syslog server (v případě, že je odpovídajícím přepínačem specifikován) nebude nic odesláno.
+Tabulka statistik nebude vyprázdněna a na syslog server (v případě,
+že je odpovídajícím přepínačem specifikován) nebude nic odesláno.
 
 
 ### Výstup
@@ -95,5 +115,40 @@ Syslog zprávy se řídí následujícím formátem:
 <134> 1 YYYY-mm-ddTHH:ii:ss.000Z $HOSTNAME dns-export $PID - - $MESSAGE
 ```
 
-Zprávy **nejsou** na syslog server odesílány jednotlivě -- jsou přidávány do bufferu do maximální délky 1024 znaků a jsou odeslány až po jeho naplnění. Jednotlivé zprávy jsou mezi sebou v rámci paketu odděleny pomocí CRLF (`0d 0a`).
+Zprávy **nejsou** na syslog server odesílány jednotlivě -- jsou přidávány
+do bufferu do maximální délky 1024 znaků a jsou odeslány až po jeho naplnění.
+Jednotlivé zprávy jsou mezi sebou v rámci paketu odděleny pomocí CRLF (`0d 0a`).
 
+
+## Seznam souborů
+
+Součástí projektu jsou následující soubory:
+
+**Zdrojové soubory**
+
+| Cesta k souboru       | Hlavičkový soubor
+|-----------------------|----------------------------------
+| `src/dns.c`           | `src/dns.h`
+| `src/ht.c`            | `src/ht.h`
+| `src/main.c`          | `src/main.h`
+| `src/network.c`       | `src/network.h`
+| `src/network_utils.c` | `src/network_utils.h`
+| `src/pcap.c`          | `src/pcap.h`
+| `src/process.c`       | `src/process.h`
+| `src/syslog.c`        | `src/syslog.h` 
+|                       | `src/macros.h` 
+
+**Soubory dokumentace**
+
+| Cesta k souboru       
+|-----------------------
+| `doc/manual.tex`
+| `dns-export.1`
+| `README.md` 
+
+**Další soubory**
+
+| Cesta k souboru       
+|-----------------------
+| `CMakeLists.txt`
+| `Makefile`
