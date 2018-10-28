@@ -570,7 +570,7 @@ void load_domain_name( char **destination, PacketDataPtr pdata, uint16_t *offset
 		else
 		{
 			//	In this case, value of data indicates length of next label
-			while (length + data + 1 > size) // +1 because '.' or '\0'
+			while (length + data + 2 > size) // +1 because '.' or '\0' or both
 			{
 				DEBUG_PRINT("%d bytes wont fit in %d, increasing to %d\n", length + data + 1, size, size * 2);
 				//	Make sure, that there is enough space for the string
@@ -584,16 +584,16 @@ void load_domain_name( char **destination, PacketDataPtr pdata, uint16_t *offset
                 }
 			}
 
+			//	Separate labels by '.'
+			if (length != 0)
+				(*destination)[length++] = '.';
+
 			//	Exit loop on label end
 			if (data == '\0')
 			{
 				(*destination)[length] = data;
 				break;
 			}
-
-			//	Separate labels by '.'
-			if (length != 0)
-				(*destination)[length++] = '.';
 
 			//	Copy label to allocated string
 			uint8_t c = 0;
