@@ -67,6 +67,7 @@
 #define DNS_TYPE_TXT	16	///< Text strings
 #define DNS_TYPE_KEY	25	///< Key record
 #define DNS_TYPE_AAAA	28	///< IPv6 address
+#define DNS_TYPE_SRV    33  ///< Service locator
 #define DNS_TYPE_KX		36	///< Key Exchanger record
 #define DNS_TYPE_DS		43	///< Delegation signer
 #define DNS_TYPE_RRSIG	46	///< DNSSEC Lookaside Validation record

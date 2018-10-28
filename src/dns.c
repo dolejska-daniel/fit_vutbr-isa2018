@@ -120,6 +120,43 @@ int load_resource_record_data( PacketDataPtr pdata, DNSResourceRecordPtr record 
 				load_domain_name(&record->rdata, pdata, &offset, 32, &domain_name_length);
 			}
 			break;
+		case DNS_TYPE_SRV:
+			{
+				/*  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+					|                   PRIORITY                    | 16bits integer
+				    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+					|                    WEIGHT                     | 16bits integer
+				    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+					|                     PORT                      | 16bits integer
+					+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+					/                    TARGET                     / domain-name
+					/                                               /
+					+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+ */
+
+				uint16_t offset = pdata->offset;
+				uint16_t priority = ntohs(*((uint16_t*) get_packet_data(pdata))); offset+= sizeof(uint16_t);
+				uint16_t weight   = ntohs(*((uint16_t*) get_packet_data(pdata))); offset+= sizeof(uint16_t);
+				uint16_t port     = ntohs(*((uint16_t*) get_packet_data(pdata))); offset+= sizeof(uint16_t);
+
+				char *target = malloc(32 * sizeof(char));
+				if (target == NULL)
+				{
+					perror("malloc");
+					return EXIT_FAILURE;
+				}
+				uint16_t target_length = 0;
+				load_domain_name(&target, pdata, &offset, 32, &target_length);
+
+				record->rdata = malloc(3 * UINT16_STRLEN + target_length + 4); // +3 whitespace, +1 '\0'
+				if (record->rdata == NULL)
+				{
+					perror("malloc");
+					return EXIT_FAILURE;
+				}
+				sprintf(record->rdata, "%d %d %d %s", priority, weight, port, target);
+				free(target);
+			}
+			break;
 		case DNS_TYPE_KX:
 		case DNS_TYPE_MX:
 			/*  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
