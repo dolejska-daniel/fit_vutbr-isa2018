@@ -94,7 +94,8 @@ void destroy_tcp_packet( TCPPacketPtr packet )
     assert(packet != NULL);
 
     DEBUG_LOG("TCP-PACKET-DESTROY", "Destroying TCP packet...");
-	destroy_packet_data(packet->data);
+    if (packet->data != NULL)
+		destroy_packet_data(packet->data);
     free(packet);
 }
 
@@ -131,7 +132,8 @@ void destroy_udp_packet( UDPPacketPtr packet )
 	assert(packet != NULL);
 
 	DEBUG_LOG("UDP-PACKET-DESTROY", "Destroying UDP packet...");
-	destroy_packet_data(packet->data);
+	if (packet->data != NULL)
+		destroy_packet_data(packet->data);
     free(packet);
 }
 
@@ -357,7 +359,7 @@ struct tcphdr *get_tcp_header( uint8_t *packet )
 
 uint16_t get_tcp_header_size( TCPPacketPtr packet )
 {
-    return packet->tcp_header->doff * 4u;
+    return (uint16_t)(packet->tcp_header->doff * 4u);
 }
 
 void print_tcp_header( const TCPPacketPtr packet )
@@ -402,10 +404,10 @@ unsigned short check_sum( unsigned short *buf, int nwords )
 
 uint16_t get_header_sizes_udp()
 {
-	return (uint16_t)(get_eth_header_size() + get_ip_header_size() + get_udp_header_size());
+	return get_eth_header_size() + get_ip_header_size() + get_udp_header_size();
 }
 
 uint16_t get_header_sizes_tcp( TCPPacketPtr packet )
 {
-	return (uint16_t)(get_eth_header_size() + get_ip_header_size() + get_tcp_header_size(packet));
+	return get_eth_header_size() + get_ip_header_size() + get_tcp_header_size(packet);
 }

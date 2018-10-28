@@ -669,9 +669,6 @@ DNSPacketPtr parse_dns_packet( PacketDataPtr pdata )
 	packet->authority_count  = ntohs(data->authority_count);
 	packet->additional_count = ntohs(data->additional_count);
 
-	//  TCP??
-	//pdata->offset = get_dns_packet_head_size() - 2; // TODO: Kde se berou 2 bajty navíc??
-
 	//  UDP??
 	pdata->offset = get_dns_packet_head_size() - 4; // TODO: Kde se berou 4 bajty navíc??
 
@@ -685,9 +682,9 @@ DNSPacketPtr parse_dns_packet( PacketDataPtr pdata )
 			destroy_dns_packet(packet);
 			return NULL;
 		}
+		memset(packet->questions, 0, packet->question_count * sizeof(DNSQueryPtr));
 
 		for (int i = 0; i < packet->question_count; i++)
-			//  TODO: If parse fails, free
 			packet->questions[i] = parse_dns_packet_query(pdata);
 	}
 
@@ -700,9 +697,9 @@ DNSPacketPtr parse_dns_packet( PacketDataPtr pdata )
 			destroy_dns_packet(packet);
 			return NULL;
 		}
+		memset(packet->answers, 0, packet->answer_count * sizeof(DNSResourceRecordPtr));
 
 		for (int i = 0; i < packet->answer_count; i++)
-			//  TODO: If parse fails, free
 			packet->answers[i] = parse_dns_packet_resource_record(pdata);
 	}
 
@@ -715,9 +712,9 @@ DNSPacketPtr parse_dns_packet( PacketDataPtr pdata )
 			destroy_dns_packet(packet);
 			return NULL;
 		}
+		memset(packet->authorities, 0, packet->authority_count * sizeof(DNSResourceRecordPtr));
 
 		for (int i = 0; i < packet->authority_count; i++)
-			//  TODO: If parse fails, free
 			packet->authorities[i] = parse_dns_packet_resource_record(pdata);
 	}
 
@@ -730,9 +727,9 @@ DNSPacketPtr parse_dns_packet( PacketDataPtr pdata )
 			destroy_dns_packet(packet);
 			return NULL;
 		}
+		memset(packet->additionals, 0, packet->additional_count * sizeof(DNSResourceRecordPtr));
 
 		for (int i = 0; i < packet->additional_count; i++)
-			//  TODO: If parse fails, free
 			packet->additionals[i] = parse_dns_packet_resource_record(pdata);
 	}
 
@@ -825,28 +822,28 @@ void destroy_dns_packet( DNSPacketPtr packet )
 	if (packet->question_count > 0 && packet->questions != NULL)
 	{
 		for (int i = 0; i < packet->question_count; i++)
-			destroy_dns_packet_query(packet->questions[i]);
+			if (packet->questions[i] != NULL) destroy_dns_packet_query(packet->questions[i]);
 		free(packet->questions);
 	}
 
 	if (packet->answer_count > 0 && packet->answers != NULL)
 	{
 		for (int i = 0; i < packet->answer_count; i++)
-			destroy_dns_packet_resource_record(packet->answers[i]);
+			if (packet->answers[i] != NULL) destroy_dns_packet_resource_record(packet->answers[i]);
 		free(packet->answers);
 	}
 
 	if (packet->authority_count > 0 && packet->authorities != NULL && DNS_PROCESS_AUTHORITIES)
 	{
 		for (int i = 0; i < packet->authority_count; i++)
-			destroy_dns_packet_resource_record(packet->authorities[i]);
+			if (packet->authorities[i] != NULL) destroy_dns_packet_resource_record(packet->authorities[i]);
 		free(packet->authorities);
 	}
 
 	if (packet->additional_count > 0 && packet->additionals != NULL && DNS_PROCESS_AUTHORITIES && DNS_PROCESS_ADDITIONALS)
 	{
 		for (int i = 0; i < packet->additional_count; i++)
-			destroy_dns_packet_resource_record(packet->additionals[i]);
+			if (packet->additionals[i] != NULL) destroy_dns_packet_resource_record(packet->additionals[i]);
 		free(packet->additionals);
 	}
 

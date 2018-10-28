@@ -28,6 +28,7 @@ PcapFilePtr pcap_file_open(char *filepath)
         perror("malloc");
         return NULL;
     }
+    memset(file, 0, sizeof(PcapFile));
 
     DEBUG_LOG("PCAP-FILE-OPEN", "Opening file...");
     //	Open .pcap file
@@ -66,14 +67,22 @@ void pcap_file_close(PcapFilePtr file)
 {
 	assert(file != NULL);
 
-    DEBUG_LOG("PCAP-FILE-CLOSE", "Closing FD...");
+	DEBUG_LOG("PCAP-FILE-CLOSE", "Destroying pcap file structure...");
 	//	CLose file descriptor
-	fclose(file->fd);
+	if (file->fd != NULL)
+	{
+		DEBUG_LOG("PCAP-FILE-CLOSE", "Closing FD...");
+		fclose(file->fd);
+	}
 
-    DEBUG_LOG("PCAP-FILE-OPEN", "Freeing allocated memory...");
 	//	Free allocated structures
-	pcap_file_foreach(file, &pcap_packet_destroy);
-	free(file->packets);
+	if (file->packets != NULL)
+	{
+		DEBUG_LOG("PCAP-FILE-OPEN", "Freeing allocated memory for packets...");
+		pcap_file_foreach(file, &pcap_packet_destroy);
+		free(file->packets);
+	}
+	DEBUG_LOG("PCAP-FILE-OPEN", "Freeing allocated memory for main structure...");
 	free(file);
 }
 
@@ -114,8 +123,13 @@ void pcap_file_foreach(PcapFilePtr file, void (*cb)(PcapPacketPtr))
     DEBUG_LOG("PCAP-FILE-FOREACH", "Invoking callback for each packet...");
 	//	For each parsed packet in structure
 	for (uint32_t i = 0; i < file->packet_count; i++)
-		//	Invoke callback with packet pointer
-		(*cb)(file->packets[i]);
+	{
+		if (file->packets[i] != NULL)
+		{
+			//	Invoke callback with packet pointer
+			(*cb)(file->packets[i]);
+		}
+	}
 }
 
 PcapPacketPtr pcap_packet_parseNext(PcapFilePtr file)
@@ -166,6 +180,7 @@ void pcap_packet_destroy(PcapPacketPtr packet)
 	assert(packet != NULL);
 
     //DEBUG_LOG("PCAP-PACKET-DESTROY", "Freeing allocated memory...");
-	free(packet->data);
+    if (packet->data != NULL)
+		free(packet->data);
 	free(packet);
 }
