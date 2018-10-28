@@ -502,16 +502,31 @@ void load_domain_name( char **destination, PacketDataPtr pdata, uint16_t *offset
 		data = *get_packet_data_custom(pdata, offset);
 		offset+= sizeof(uint8_t);
 
-		if (data == DNS_RECURSION_MASK)
+		if ((data & DNS_RECURSION_MASK) == DNS_RECURSION_MASK)
 		{
 			//	Byte indicates string reference
 			DEBUG_LOG("LOAD-DNS-STRING", "Is recursion...");
 
 			//	Load label reference
-			data = *get_packet_data_custom(pdata, offset);
-			offset+= sizeof(uint8_t);
+			uint16_t recursion_offset = *((uint16_t *) get_packet_data_custom(pdata, offset - sizeof(uint8_t)));
+			//  Remove first two bits
+			recursion_offset^= (DNS_RECURSION_MASK);
+			//  Convert from network byte order
+			recursion_offset = ntohs(recursion_offset);
 
-			uint16_t recursion_offset = data;
+			DEBUG_PRINT("\trecusrion_offset: %u (%#4x)\n", recursion_offset, recursion_offset);
+			/*
+			for (uint16_t i = 1; i <= 16; i++)
+			{
+				fprintf(stderr, "%#04x ", get_packet_data_custom(pdata, recursion_offset)[i-1]);
+				if (i % 8 == 0)
+					fprintf(stderr, " ");
+				if (i % 16 == 0)
+					fprintf(stderr, "\n");
+			}
+			 */
+
+			offset+= sizeof(uint8_t);
 			load_domain_name(destination, pdata, &recursion_offset, size, &length);
 			break;
 		}
@@ -581,7 +596,7 @@ DNSPacketPtr parse_dns_packet( PacketDataPtr pdata )
 	}
 	memset(packet, 0, sizeof(DNSPacket));
 
-	DNSPacketPtr data = (DNSPacketPtr) pdata->data;
+	DNSPacketPtr data = (DNSPacketPtr) get_packet_data(pdata);
 
 	packet->transaction_id = ntohs(data->transaction_id);
 	packet->flags          = ntohs(data->flags);
@@ -591,7 +606,12 @@ DNSPacketPtr parse_dns_packet( PacketDataPtr pdata )
 	packet->authority_count  = ntohs(data->authority_count);
 	packet->additional_count = ntohs(data->additional_count);
 
+	//  TCP??
+	//pdata->offset = get_dns_packet_head_size() - 2; // TODO: Kde se berou 2 bajty navíc??
+
+	//  UDP??
 	pdata->offset = get_dns_packet_head_size() - 4; // TODO: Kde se berou 4 bajty navíc??
+
 	DEBUG_PRINT("offset location pre queryparse: %s\n", get_packet_data_custom(pdata, pdata->offset));
 	if (packet->question_count > 0)
 	{
@@ -814,23 +834,23 @@ void print_dns_packet( DNSPacketPtr packet )
 	);
 
 	fprintf(stderr, "DNS_Questions:\n");
-	for (int i = 0; i < packet->question_count; i++)
+	for (int i = 0; i < packet->question_count && packet->questions != NULL; i++)
 		print_dns_packet_query(packet->questions[i]);
 
 	fprintf(stderr, "DNS_Answers:\n");
-	for (int i = 0; i < packet->answer_count; i++)
+	for (int i = 0; i < packet->answer_count && packet->answers != NULL; i++)
 		print_dns_packet_resource_record(packet->answers[i]);
 
 	if (DNS_PROCESS_AUTHORITIES)
 	{
 		fprintf(stderr, "DNS_Authorities:\n");
-		for (int i = 0; i < packet->authority_count; i++)
+		for (int i = 0; i < packet->authority_count && packet->authorities != NULL; i++)
 			print_dns_packet_resource_record(packet->authorities[i]);
 
 		if (DNS_PROCESS_ADDITIONALS)
 		{
 			fprintf(stderr, "DNS_Additionals:\n");
-			for (int i = 0; i < packet->additional_count; i++)
+			for (int i = 0; i < packet->additional_count && packet->additionals != NULL; i++)
 				print_dns_packet_resource_record(packet->additionals[i]);
 		}
 	}

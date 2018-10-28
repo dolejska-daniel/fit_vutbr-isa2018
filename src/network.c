@@ -20,26 +20,6 @@
 
 
 // ///////////////////////////////////////////////////////////////////////
-//      GENERAL
-// ///////////////////////////////////////////////////////////////////////
-
-unsigned short check_sum( unsigned short *buf, int nwords )
-{
-    unsigned long sum;
-    for(sum=0; nwords>0; nwords--)
-        sum += *buf++;
-    sum = (sum >> 16) + (sum &0xffff);
-    sum += (sum >> 16);
-    return (unsigned short)(~sum);
-}
-
-size_t get_header_sizes()
-{
-    return get_eth_header_size() + get_ip_header_size() + get_udp_header_size();
-}
-
-
-// ///////////////////////////////////////////////////////////////////////
 //      PACKET DATA
 // ///////////////////////////////////////////////////////////////////////
 
@@ -95,12 +75,16 @@ TCPPacketPtr parse_tcp_packet( uint8_t *packet_data )
     packet->eth_header = get_eth_header(packet_data);
     packet->ip_header  = get_ip_header(packet_data);
     packet->tcp_header = get_tcp_header(packet_data);
-    packet->data       = create_packet_data(packet_data + get_header_sizes(), 0);
+    packet->data       = create_packet_data(packet_data + get_header_sizes_tcp(packet), 0);
     if (packet->data == NULL)
     {
     	destroy_tcp_packet(packet);
     	return NULL;
     }
+
+    //DEBUG_PRINT("\n\nPACKETDATA:\n%#x %#x %#x %#x %#x %#x %#x %#x\n",
+    //            get_packet_data(packet->data)[0], get_packet_data(packet->data)[1], get_packet_data(packet->data)[2], get_packet_data(packet->data)[3],
+    //            get_packet_data(packet->data)[4], get_packet_data(packet->data)[5], get_packet_data(packet->data)[6], get_packet_data(packet->data)[7]);
 
     return packet;
 }
@@ -132,7 +116,7 @@ UDPPacketPtr parse_udp_packet( uint8_t *packet_data )
     packet->eth_header = get_eth_header(packet_data);
     packet->ip_header  = get_ip_header(packet_data);
     packet->udp_header = get_udp_header(packet_data);
-	packet->data       = create_packet_data(packet_data + get_header_sizes(), 0);
+	packet->data       = create_packet_data(packet_data + get_header_sizes_udp(), 0);
 	if (packet->data == NULL)
 	{
 		destroy_udp_packet(packet);
@@ -165,7 +149,7 @@ struct ethhdr *get_eth_header( uint8_t *packet )
     return header;
 }
 
-size_t get_eth_header_size()
+uint16_t get_eth_header_size()
 {
     return sizeof(struct ethhdr);
 }
@@ -179,7 +163,7 @@ void print_eth_header_struct( const struct ethhdr *eh )
 {
 #ifdef DEBUG_PRINT_ENABLED
     fprintf(
-            stderr, "ETH_HEADER (size: %ld [+4 checksum]): {\n\th_source\t%02x:%02x:%02x:%02x:%02x:%02x\n\th_dest\t\t%02x:%02x:%02x:%02x:%02x:%02x\n\th_proto\t\t%#04x\n}\n",
+            stderr, "ETH_HEADER (size: %u [+4 checksum]): {\n\th_source\t%02x:%02x:%02x:%02x:%02x:%02x\n\th_dest\t\t%02x:%02x:%02x:%02x:%02x:%02x\n\th_proto\t\t%#04x\n}\n",
             get_eth_header_size(),
             eh->h_source[0], eh->h_source[1], eh->h_source[2], eh->h_source[3], eh->h_source[4], eh->h_source[5],
             eh->h_dest[0], eh->h_dest[1], eh->h_dest[2], eh->h_dest[3], eh->h_dest[4], eh->h_dest[5],
@@ -215,7 +199,7 @@ void eth_encaps( uint8_t *packet, uint16_t *packet_len, const uint8_t *source_ma
     *packet_len += get_eth_header_size();
 
     DEBUG_LOG("ETH-ENCAPS", "ETH header created...");
-    DEBUG_PRINT("\tpacket_length (local): %hu (added %lu)\n", (unsigned short) *packet_len, get_eth_header_size());
+    DEBUG_PRINT("\tpacket_length (local): %hu (added %u)\n", (unsigned short) *packet_len, get_eth_header_size());
     print_eth_header_struct(eh);
 }
 
@@ -235,7 +219,7 @@ struct iphdr *get_ip_header( uint8_t *packet )
     return header;
 }
 
-size_t get_ip_header_size()
+uint16_t get_ip_header_size()
 {
     return sizeof(struct iphdr);
 }
@@ -249,7 +233,7 @@ void print_ip_header_struct( const struct iphdr *iph )
 {
 #ifdef DEBUG_PRINT_ENABLED
     fprintf(
-            stderr, "IP_HEADER (size: %ld): {\n\tversion\t%d\n\tihl\t%d\n\ttos\t%d\n\tid\t%#x\n\tttl\t%d\n\tprotocol\t%d\n\tsaddr\t%#x, %hu.%hu.%hu.%hu\n\tdaddr\t%#x, %hu.%hu.%hu.%hu\n\ttot_len\t%d\n\tcheck\t%#x\n}\n",
+            stderr, "IP_HEADER (size: %u): {\n\tversion\t%d\n\tihl\t%d\n\ttos\t%d\n\tid\t%#x\n\tttl\t%d\n\tprotocol\t%d\n\tsaddr\t%#x, %hu.%hu.%hu.%hu\n\tdaddr\t%#x, %hu.%hu.%hu.%hu\n\ttot_len\t%d\n\tcheck\t%#x\n}\n",
             get_ip_header_size(),
             iph->version,
             iph->ihl,
@@ -289,7 +273,7 @@ void ip_encaps( uint8_t *packet, uint16_t *packet_len )
     *packet_len += get_ip_header_size();
 
     DEBUG_LOG("IPH-ENCAPS", "IP header created...");
-    DEBUG_PRINT("\tpacket_length (local): %hu (added %lu)\n", (unsigned short) *packet_len, get_ip_header_size());
+    DEBUG_PRINT("\tpacket_length (local): %hu (added %u)\n", (unsigned short) *packet_len, get_ip_header_size());
     print_ip_header_struct(iph);
 }
 
@@ -310,7 +294,7 @@ struct udphdr *get_udp_header( uint8_t *packet )
     return header;
 }
 
-size_t get_udp_header_size()
+uint16_t get_udp_header_size()
 {
     return sizeof(struct udphdr);
 }
@@ -324,7 +308,7 @@ void print_udp_header_struct( const struct udphdr *udph )
 {
 #ifdef DEBUG_PRINT_ENABLED
     fprintf(
-            stderr, "UDP_HEADER (size: %ld): {\n\tsource\t%u\n\tdest\t%u\n\tlen\t%d\n\tcheck\t%#x\n}\n",
+            stderr, "UDP_HEADER (size: %u): {\n\tsource\t%u\n\tdest\t%u\n\tlen\t%d\n\tcheck\t%#x\n}\n",
             get_udp_header_size(),
             udph->source,
             udph->dest,
@@ -351,7 +335,7 @@ void udp_encaps( uint8_t *packet, uint16_t *packet_len, uint16_t source_port, ui
     *packet_len += get_udp_header_size();
 
     DEBUG_LOG("UDPH-ENCAPS", "UDP header created...");
-    DEBUG_PRINT("\tpacket_length (local): %hu (added %lu)\n", (unsigned short) *packet_len, get_udp_header_size());
+    DEBUG_PRINT("\tpacket_length (local): %hu (added %u)\n", (unsigned short) *packet_len, get_udp_header_size());
     print_udp_header_struct(udph);
 }
 
@@ -371,25 +355,57 @@ struct tcphdr *get_tcp_header( uint8_t *packet )
     return header;
 }
 
-size_t get_tcp_header_size()
+uint16_t get_tcp_header_size( TCPPacketPtr packet )
 {
-    return sizeof(struct tcphdr);
+    return packet->tcp_header->doff * 4u;
 }
 
 void print_tcp_header( const TCPPacketPtr packet )
 {
-	print_tcp_header_struct(packet->tcp_header);
+	print_tcp_header_struct(packet->tcp_header, get_tcp_header_size(packet));
 }
 
-void print_tcp_header_struct( const struct tcphdr *tcph )
+void print_tcp_header_struct( const struct tcphdr *tcph, uint16_t size )
 {
 #ifdef DEBUG_PRINT_ENABLED
 	fprintf(
-		stderr, "TCP_HEADER (size: %ld): {\n\tsource\t%u\n\tdest\t%u\n\tcheck\t%#x\n}\n",
-		get_tcp_header_size(),
+		stderr, "TCP_HEADER (size: %u): {\n\tsource\t%u\n\tdest\t%u\n\tcheck\t%#x\n\tseq\t%u\n\tack\t%u\n\tack_seq\t%u\n\tflags\t%#x\n\tFIN\t%#x\n\tSYN\t%#x\n\tACK\t%#x\n}\n",
+		size,
 		tcph->source,
 		tcph->dest,
-		tcph->check
+		tcph->check,
+        tcph->th_seq,
+		tcph->th_ack,
+		tcph->ack_seq,
+		tcph->th_flags,
+		tcph->fin,
+		tcph->syn,
+		tcph->ack
 	);
 #endif
+}
+
+
+// ///////////////////////////////////////////////////////////////////////
+//      GENERAL
+// ///////////////////////////////////////////////////////////////////////
+
+unsigned short check_sum( unsigned short *buf, int nwords )
+{
+	unsigned long sum;
+	for(sum=0; nwords>0; nwords--)
+		sum += *buf++;
+	sum = (sum >> 16) + (sum &0xffff);
+	sum += (sum >> 16);
+	return (unsigned short)(~sum);
+}
+
+uint16_t get_header_sizes_udp()
+{
+	return (uint16_t)(get_eth_header_size() + get_ip_header_size() + get_udp_header_size());
+}
+
+uint16_t get_header_sizes_tcp( TCPPacketPtr packet )
+{
+	return (uint16_t)(get_eth_header_size() + get_ip_header_size() + get_tcp_header_size(packet));
 }

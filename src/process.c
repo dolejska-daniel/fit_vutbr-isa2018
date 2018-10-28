@@ -23,7 +23,113 @@
 
 
 long send_interval_current = 0;
+uint8_t *tcp_buffer = 0;
+uint8_t tcp_packet_ended = 0;
+uint16_t tcp_buffer_offset = 0;
+uint16_t tcp_dns_length = 0;
+uint32_t tcp_packet_seq = 0;
 
+
+// ///////////////////////////////////////////////////////////////////////
+//      TCP PACKET BUFFER
+// ///////////////////////////////////////////////////////////////////////
+
+int create_tcp_buffer()
+{
+	tcp_buffer = malloc(TCP_BUFFER_SIZE);
+	if (tcp_buffer == NULL)
+	{
+		perror("malloc");
+		return EXIT_FAILURE;
+	}
+	memset(tcp_buffer, 0, TCP_BUFFER_SIZE);
+	return EXIT_SUCCESS;
+}
+
+void destroy_tcp_buffer()
+{
+	free(tcp_buffer);
+}
+
+void push_tcp_data( TCPPacketPtr packet )
+{
+	DEBUG_LOG("PUSH-TCP-DATA", "Pushing TCP packet data...");
+	if (tcp_packet_ended == 0 && tcp_packet_seq > 0 && packet->tcp_header->ack_seq != tcp_packet_seq)
+	{
+		DEBUG_ERR("PUSH-TCP-DATA", "Failed to push another TCP packet, last packet not popped!");
+		return;
+	}
+
+	if (packet->tcp_header->syn != 0
+		|| packet->tcp_header->source != DNS_PORT)
+	{
+		DEBUG_LOG("PUSH-TCP-DATA", "Ignoring packet, doesn't contain DNS data...");
+		//  Packet doesn't contain any DNS data
+		return;
+	}
+
+	//  Size of TCP payload
+	uint16_t size = packet->ip_header->tot_len - get_ip_header_size() - get_tcp_header_size(packet);
+	if (size == 0)
+	{
+		DEBUG_LOG("PUSH-TCP-DATA", "Ignoring packet, no data are present...");
+		return;
+	}
+
+	if (tcp_dns_length == 0)
+	{
+		DEBUG_LOG("PUSH-TCP-DATA", "Setting DNS response length...");
+		tcp_dns_length = ntohs(*((uint16_t *)get_packet_data(packet->data)));
+		packet->data->offset+= 2;
+		size-= 2;
+		DEBUG_PRINT("\tsupposed_length: %u\n", tcp_dns_length);
+	}
+	else if (tcp_buffer_offset + size >= tcp_dns_length)
+	{
+		DEBUG_LOG("PUSH-TCP-DATA", "Current length is equal or exceeds supposed length, ending packet...");
+		DEBUG_PRINT("\tsupposed_length: %u\n\tactual_length: %u\n", tcp_dns_length, tcp_buffer_offset + size);
+		tcp_packet_ended = 1;
+	}
+
+	DEBUG_LOG("PUSH-TCP-DATA", "Inserting packet data...");
+	tcp_packet_seq = packet->tcp_header->ack_seq;
+	DEBUG_PRINT("\tsize: %d\n\ttcp_packet_seq: %u\n\toffset: %u\n",
+	            size, tcp_packet_seq, tcp_buffer_offset);
+
+	//  Current buffer position
+	uint8_t *buffer = tcp_buffer + tcp_buffer_offset;
+	//  Copy data
+	for (uint16_t i = 0; i < size; i++)
+		buffer[i] = get_packet_data(packet->data)[i];
+
+	//  Move in buffer
+	tcp_buffer_offset+= size;
+}
+
+uint16_t pop_tcp_data( TCPPacketPtr packet )
+{
+	DEBUG_LOG("POP-TCP-DATA", "Popping packet data...");
+	if (tcp_packet_ended == 0)
+	{
+		DEBUG_LOG("POP-TCP-DATA", "Previous packet not ended yet...");
+		return 0;
+	}
+
+	DEBUG_LOG("PUSH-TCP-DATA", "Popping will proceed...");
+	packet->data->data = tcp_buffer;
+
+	uint16_t result = tcp_buffer_offset;
+	tcp_packet_ended = 0;
+	tcp_packet_seq = 0;
+	tcp_buffer_offset = 0;
+	tcp_dns_length = 0;
+	return result;
+}
+
+
+// ///////////////////////////////////////////////////////////////////////
+//      PACKET PROCESSING
+// ///////////////////////////////////////////////////////////////////////
 
 /**
  *
@@ -84,6 +190,11 @@ int start_interface_listening( char *interface )
 	gettimeofday(&time_last, NULL);
 	long send_interval_ms = send_interval * 1000;
 
+	if (create_tcp_buffer() != EXIT_SUCCESS)
+	{
+		return EXIT_FAILURE;
+	}
+
 	DEBUG_LOG("PROCESS", "Listening for transmissions...");
 
 	while (1)
@@ -121,6 +232,7 @@ int start_interface_listening( char *interface )
 	}
 
 	send_statistics(1, 0);
+	destroy_tcp_buffer();
 	return EXIT_SUCCESS;
 }
 
@@ -128,6 +240,11 @@ int start_file_processing( PcapFilePtr file )
 {
 	if (file->packet_count == 0)
 		return EXIT_SUCCESS;
+
+	if (create_tcp_buffer() != EXIT_SUCCESS)
+	{
+		return EXIT_FAILURE;
+	}
 
 	PcapPacketHeaderPtr header_last = &file->packets[0]->header;
 	for (uint32_t i = 0; i < file->packet_count; i++)
@@ -150,6 +267,7 @@ int start_file_processing( PcapFilePtr file )
 	}
 
 	send_statistics(1, 0);
+	destroy_tcp_buffer();
 	return EXIT_SUCCESS;
 }
 
@@ -206,15 +324,12 @@ int process_traffic( uint8_t *data )
 			return EXIT_FAILURE;
 		}
 
-		print_tcp_header_struct(packet->tcp_header);
+		print_tcp_header(packet);
+		push_tcp_data(packet);
+		uint16_t tcp_read = pop_tcp_data(packet);
 
-		//  TODO: Process all related TCP packets
-
-		if (packet->tcp_header->source == DNS_PORT)
+		if (tcp_read > 0)
 		{
-			DEBUG_LOG("PROCESS[TCP]", "Packet destination: DNS PORT...");
-
-		/*
 			//  Parse DNS part of the packet
 			DNSPacketPtr dns = parse_dns_packet(packet->data);
 			if (dns == NULL)
@@ -231,7 +346,6 @@ int process_traffic( uint8_t *data )
 
 			//	DNS packet is no longer needed
 			destroy_dns_packet(dns);
-		 */
 		}
 
 		//	TCP packet is no longer needed

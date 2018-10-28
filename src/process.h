@@ -9,9 +9,49 @@
 #include "dns.h"
 #include "pcap.h"
 
+#define TCP_BUFFER_SIZE 65535
+
 
 extern long send_interval_current;
+extern uint8_t *tcp_buffer;
+extern uint16_t tcp_buffer_offset;
 
+
+// ///////////////////////////////////////////////////////////////////////
+//      TCP PACKET BUFFER
+// ///////////////////////////////////////////////////////////////////////
+
+/**
+ * Alokuje a vynuluje buffer pro data TCP packetu.
+ *
+ * @return
+ */
+int create_tcp_buffer();
+
+/**
+ * Zrusi dynamicky alokovany buffer pro TCP packety.
+ */
+void destroy_tcp_buffer();
+
+/**
+ * Vlozi nova data z TCP packetu do bufferu, pokud se jedna o DNS packet. Pokud
+ * ne, ukonci predchozi TCP packet.
+ *
+ * @param packet
+ */
+void push_tcp_data( TCPPacketPtr packet );
+
+/**
+ *
+ * @param packet
+ * @return uint16_t
+ */
+uint16_t pop_tcp_data( TCPPacketPtr packet );
+
+
+// ///////////////////////////////////////////////////////////////////////
+//      PACKET PROCESSING
+// ///////////////////////////////////////////////////////////////////////
 
 /**
  * Zacne naslouchat na danem sitovem rozhrani a zpracovavat provoz.

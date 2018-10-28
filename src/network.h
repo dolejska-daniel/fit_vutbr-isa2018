@@ -22,28 +22,6 @@
 
 
 // ///////////////////////////////////////////////////////////////////////
-//      GENERAL
-// ///////////////////////////////////////////////////////////////////////
-
-/**
- * Vypocte kontrolni soucet pro obsah packetu.
- *
- * @param buf
- * @param nwords
- *
- * @return unsigned short
- */
-unsigned short check_sum(unsigned short *buf, int nwords);
-
-/**
- * Ziska celkovou velikost hlavicek packetu (ETH + IP + UDP).
- *
- * @return size_t
- */
-size_t get_header_sizes();
-
-
-// ///////////////////////////////////////////////////////////////////////
 //      PACKET DATA
 // ///////////////////////////////////////////////////////////////////////
 
@@ -174,9 +152,9 @@ struct ethhdr *get_eth_header( uint8_t *packet );
 /**
  * Ziska velikost ETH headeru.
  *
- * @return size_t
+ * @return uint16_t
  */
-size_t get_eth_header_size();
+uint16_t get_eth_header_size();
 
 /**
  * Vypise obsah ETH headeru z packetu na stderr.
@@ -218,9 +196,9 @@ struct iphdr *get_ip_header( uint8_t *packet );
 /**
  * Ziska velikost IP headeru.
  *
- * @return size_t
+ * @return uint16_t
  */
-size_t get_ip_header_size();
+uint16_t get_ip_header_size();
 
 /**
  * Vypise obsah IP headeru z packetu na stderr.
@@ -272,9 +250,9 @@ struct udphdr *get_udp_header( uint8_t *packet );
 /**
  * Ziska velikost UDP headeru.
  *
- * @return size_t
+ * @return uint16_t
  */
-size_t get_udp_header_size();
+uint16_t get_udp_header_size();
 
 /**
  * Vypise obsah UDP headeru z packetu na stderr.
@@ -328,9 +306,10 @@ struct tcphdr *get_tcp_header( uint8_t *packet );
 /**
  * Ziska velikost TCP headeru.
  *
- * @return size_t
+ * @param packet
+ * @return uint16_t
  */
-size_t get_tcp_header_size();
+uint16_t get_tcp_header_size(TCPPacketPtr packet);
 
 /**
  * Vypise obsah TCP headeru z packetu na stderr.
@@ -343,7 +322,38 @@ void print_tcp_header( TCPPacketPtr packet );
  * Vypise obsah TCP headeru na stderr.
  *
  * @param tcph
+ * @param size
  */
-void print_tcp_header_struct( const struct tcphdr *tcph );
+void print_tcp_header_struct( const struct tcphdr *tcph, uint16_t size );
+
+
+// ///////////////////////////////////////////////////////////////////////
+//      GENERAL
+// ///////////////////////////////////////////////////////////////////////
+
+/**
+ * Vypocte kontrolni soucet pro obsah packetu.
+ *
+ * @param buf
+ * @param nwords
+ *
+ * @return unsigned short
+ */
+unsigned short check_sum(unsigned short *buf, int nwords);
+
+/**
+ * Ziska celkovou velikost hlavicek UDP packetu (ETH + IP + UDP).
+ *
+ * @return uint16_t
+ */
+uint16_t get_header_sizes_udp();
+
+/**
+ * Ziska celkovou velikost hlavicek TCP packetu (ETH + IP + TCP).
+ *
+ * @param packet
+ * @return uint16_t
+ */
+uint16_t get_header_sizes_tcp(TCPPacketPtr packet);
 
 #endif //_NETWORK_H
