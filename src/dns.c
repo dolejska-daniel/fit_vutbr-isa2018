@@ -204,8 +204,34 @@ int load_resource_record_data( PacketDataPtr pdata, DNSResourceRecordPtr record 
 			   /                                                               /
 			   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ */
 			{
-				record->rdata = malloc(4);
-				sprintf(record->rdata, "DS!");
+				uint16_t offset = pdata->offset;
+
+				uint16_t key_tag     = ntohs(*((uint16_t *) get_packet_data_custom(pdata, offset))); offset+= sizeof(uint16_t);
+				uint8_t  algorithm   = *get_packet_data_custom(pdata, offset); offset+= sizeof(uint8_t);
+				uint8_t  digest_type = *get_packet_data_custom(pdata, offset); offset+= sizeof(uint8_t);
+
+				uint16_t digest_length = record->rdata_length - (pdata->offset - offset);
+				uint8_t *digest = malloc(digest_length * sizeof(uint8_t));
+				if (digest == NULL)
+				{
+					perror("malloc");
+					return EXIT_FAILURE;
+				}
+				for (uint16_t i = 0; i < digest_length; i++)
+					digest[i] = get_packet_data_custom(pdata, offset)[i];
+
+				//  Allocate string and paste data
+				record->rdata = malloc(2 * UINT8_STRLEN + UINT16_STRLEN + digest_length);
+				if (record->rdata == NULL)
+				{
+					perror("malloc");
+					free(digest);
+					return EXIT_FAILURE;
+				}
+				//sprintf(record->rdata, "%d %d %d %s", key_tag, algorithm, digest_type, digest);
+				sprintf(record->rdata, "%d %d %d *DIGEST*", key_tag, algorithm, digest_type);
+
+				free(digest);
 			}
 			break;
 		case DNS_TYPE_SOA:
