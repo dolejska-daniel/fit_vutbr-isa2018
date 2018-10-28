@@ -1,23 +1,150 @@
-\documentclass{article}
+\documentclass[11pt]{article}
 \usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[main=czech]{babel}
+\usepackage[nottoc]{tocbibind}
+\usepackage{url}
+\usepackage{xcolor}
+\usepackage{minted}
+\usepackage{array}
 
-\title{ISA 2018 - Export DNS informací pomocí protokolu Syslog}
-\author{Daniel Dolejška, \textsf{xdolej08@stud.fit.vutbr.cz}}
-\date{Říjen 2018}
+\usepackage{parskip}
+\setlength{\parindent}{20pt}
+
+\title{\textbf{FIT VUT Brno - ISA}\\
+	Export DNS informací pomocí protokolu Syslog}
+\author{Daniel Dolejška, \texttt{xdolej08@stud.fit.vutbr.cz}}
+\date{\today}
 
 \begin{document}
+	
+	\maketitle
+	\tableofcontents
+	
+	
+	\newpage
+	
+	\section{Úvod}
+	Krátký všeobecný úvod do problematiky služby DNS a Syslog.
+	
+	\subsection{DNS}
+	Služba DNS patří mezi kritické služby dnešního internetu - slouží především, ale ne pouze, pro překlad doménových názvů na IP adresy a naopak. Adresy IPv4 jsou uloženy v DNS záznamech typu \texttt{A}, IPv6 v záznamech typu \texttt{AAAA}\cite{RFC1035}.
+	
+	Dále se používá pro identifikaci existujících služeb v rámci daných domén, například odesílání emailů (Mail Exchange - \texttt{MX}), či jiných\cite{RFC2782} (\texttt{SRV}).
+	
+	Pro zajištění vyšší bezpečnosti a ochrany před podvržením těchto záznamů vzniklo pro službu DNS rozšíření s názvem DNSSEC, které pracuje na principu podepisování záznamů\cite{RFC4034}.
+	
+	\subsection{Syslog}
+	Syslog je standard pro logovací zprávy\cite{RFC5424}. Dovoluje filtrování na základě zdroje i závažnosti zpráv.
+	
+	
+	\section{Implementace}
+	Popis řešení problémů a jejich konkrétní implementace v rámci této aplikace.
+	
+	Celé řešení tohoto projektu je postaveno výhradně na vlastních zdrojových textech a nevyužívá žádné knihovny třetích stran. Je zpracováno v programovacím jazyce C, drží se standardu C99.
+	
+	\subsection{Přijímání dat}
+	\subsubsection{Data ze síťového rozhraní}
+	Pro přístup k síťové komunikaci na daných síťových rozhraních jsou použity tzv. \textsf{raw sockety}.
+	
+	Tento typ schránky nám dává přístup k veškerému síťovému provozu pro daná síťová rozhraní na velmi nízké úrovni - systém neprovádí žádné úpravy dat ani jejich zpracování a dává nám přístup k datovému byte streamu\cite{Linux-raw}.
+	
+	Tato data jsou dále podstoupena ke zpracování, informace ke zpracovávání síťového provozu jsou v kapitole~\ref{section:data-processing}.
+	
+	\subsubsection{Soubor \textsf{pcap} (\textsf{tcpdump})}
+	Zpracování souboru \textsf{.pcap} probíhá díky jeho struktuře velice jednoduše a dovoluje téměř stejné zacházení jako přímé čtení komunikace na síťovém rozhraní - jedná se o čistý byte stream předdefinovaných datových struktur a samotných dat. Oproti síťovému provozu se ale liší\cite{WiresharkWiki-Libpcap}:
+	
+	\begin{itemize}
+		\item \textbf{Globální hlavička} \\
+		Soubor obsahuje záhlaví, ve kterém se nacházejí méně důležité informace typu: verze formátu souboru, údaje o časové zóně aj.
+		
+		\item \textbf{Záhlaví packetu} \\
+		Každá zachycená síťová komunikace pak má vlastní hlavičku, která obsahuje mnohem důležitější informace - například čas zachycení či délku vlastní komunikace (packetu).
+	\end{itemize}
+	
+	{
+		\setlength\extrarowheight{2pt}
+		\begin{table}[H]
+			\makebox[\textwidth][c]{
+				\begin{tabular}{|c|c|c|c|c|c|}
+					\hline
+					\texttt{Globální hlavička} & \texttt{Záhlaví packetu} & \texttt{Data packetu} & \texttt{Záhlaví packetu} & \texttt{Data packetu} & \texttt{\ldots} \\ \hline
+				\end{tabular}
+			}
+			\caption{Formát \textsf{pcap} souboru\cite{WiresharkWiki-Libpcap}} \label{table:pcap-file-format}
+		\end{table}
+	}
 
-    \maketitle
-    \tableofcontents
+	Veškerá zachycená komunikace je v souboru uložena bezprostředně za sebou umožňující její snadné zpracování, viz Tabulka~\ref{table:pcap-file-format}. Program dále předpokládá validitu souboru -- nejsou prováděny žádné kontroly a validace.
+	
+	Zpracování probíhá v několika krocích - otevření souboru, přečtení globální hlavičky, opakované čtení záhlaví packetu spolu s jeho daty (délka je uvedena v záhlaví) dokud není dosažen konec souboru.
+	
+	Získaná data síťového provozu jsou následně předána ke zpracování, kde je s nimi zacházeno naprosto stejným způsobem jako s daty ze síťového rozhraní - více v kapitole~\ref{section:data-processing}.
 
-    \newpage
-    \section{Úvod}
-    \textit{TBA.}
-
-    \section{Implementace}
-    \textit{TBA.}
-
-    \section{Práce s programem}
-    \textit{TBA.}
-
+	\subsection{Zpracování dat} \label{section:data-processing}
+	\subsubsection{Packet} \label{section:data-processing:packet}
+	Pro účely zpracování dat z raw socketů jsem použil a rozšířil základ z loňského projektu do předmětu IPK. Zpracování využívá vestavěné struktury popisující Ethernet, IP\cite{RFC0791}, UPD\cite{RFC0768} i TCP\cite{RFC0793} hlavičky dle definovaných standardů.
+	
+	Z IP hlavičky je nejdříve zjištěno, zda se jedná o packet příslušící protokolu DNS - byl odeslán z/na port \textsf{53}\cite{RFC1035}. Přenosy neobsahující odpovědi DNS serveru jsou aplikací ignorovány. Z IP hlavičky je dále zjištěno jaký transportní protokol (UDP či TCP) byl pro přenos použit -- na základě této informace se zpracování packetu dále dělí:
+	
+	V případě, že byl pro přenos použit protokol TCP aplikace před dalším zpracováním čeká na chybějící data, pokud je to nutné\cite{RFC7766}. Odpovědi jsou párovány na základě sekvenčního čísla packetu\cite{RFC0793}. Po sestavení celé DNS odpovědi pokračuje aplikace ve zpracovávání těchto dat (Kapitola~\ref{section:data-processing:dns}).
+	
+	Pro DNS odpovědi přenášené protokolem UDP je dalším krokem jejich okamžité zpracování (Kapitola~\ref{section:data-processing:dns}).
+	
+	\subsubsection{DNS} \label{section:data-processing:dns}
+	Ze získaných dat jsou nejdříve zpracovány statické položky: ID transakce, počty obsažených odpovědí a další doplňující informace\cite{RFC1035}.
+	
+	Na základě počtů, získaných z DNS hlavičky, jsou následně zpracovávány jednotlivé DNS záznamy dle jejich specifikací\cite{RFC1035}\cite{RFC4034}. Položky složitějších záznamů jsou v textové podobě reprezentovány číselně oddělené mezerami.
+	
+	\subsection{Vyhodnocování dat}
+	Kompletně zpracované odpovědi DNS serverů jsou po jedné vkládány do tabulky s rozptýlenými položkami. Jako vyhledávací klíč je použita textová reprezentace dané odpovědi - typicky v následujícím formátu:
+	
+	\begin{minted}{xml}
+<domain-name> <rr-type> <rr-data>
+	\end{minted}
+	
+	Jako hodnota je pro daný klíč použito číslo reprezentující počet těchto odpovědí. Při prvním vložení DNS odpovědi je v tabulce inicializována s hodnotou 1. Při každém dalším vložení je její hodnota inkrementována o 1.
+	
+	Do statistik jsou zahrnuty odpovědi uvedené v answers či authority (additionals jsou aplikací ignorovány) avšak pouze následující podporované typy:
+	
+	\makebox[\textwidth][c]{
+		\texttt{A}, \texttt{AAAA}, \texttt{NS}, \texttt{PTR}, \texttt{CNAME}, \texttt{SRV}, \texttt{KX}, \texttt{MX}, \texttt{TA}, \texttt{DLV}, \texttt{DS}, \texttt{SOA}, \texttt{NSEC}, \texttt{NSEC3}, \texttt{RRSIG}, \texttt{DNSKEY}, \texttt{KEY}, \texttt{TXT}
+	}
+	
+	Po každém odeslání/výpisu statistik (na \texttt{stdout}/syslog server)) z tabulky je tabulka vyčištěna a výpočet probíhá nanovo.
+	
+	V projektu jsem použil svou implementaci tabulky s rozptýlenými položkami, kterou jsem naprogramoval v rámci domácí úlohy do předmětu IAL.
+	
+	
+	\subsection{Odesílání dat} \label{section:data-sending}
+	\subsubsection{Výpis - \texttt{stdout}}
+	Po uplynutí daného časového intervalu (pokud není nastaveno odesílání statistik na syslog server) nebo po přijetí signálu \texttt{USR1} dojde k výpisu aktuálních statistik na standardní výstup (\texttt{stdout}).
+	
+	Statistiky jsou vypisovány v následujícím formátu (čísla v hranatých závorkách udávají počet výskytů v rámci jednoho výpisu):
+	\begin{minted}{xml}
+=== DNS Traffic Statistics (last %ld minute(s) %ld second(s)) ===\n [1]
+<domain-name> <rr-type> <rr-data> <count>\n [0-n]
+\n [1]
+	\end{minted}
+	
+	Pokud k výpisu došlo kvůli vypršení časového intervalu, je tabulka se statistikami vyprázdněna, jinak k vyprázdnění nedochází.
+	
+	\subsubsection{Syslog server}
+	Po uplynutí daného časového intervalu (pokud je nastaveno odesílání statistik na syslog server) nebo po dokončení zpracování souboru (pokud není explicitně nastaven jiný časový interval než výchozí) dojde k odeslání aktuálních statistik na specifikovaný syslog server.
+	
+	Zprávy nejsou na syslog server odesílány samostatně - aplikace se snaží poskládat co nejvíce po sobě jdoucích zpráv do jednoho přenosu v maximální délce 1024 znaků. Seskupené zprávy jsou mezi sebou v rámci daného packetu odděleny pomocí CRLF (\texttt{0x0d 0x0a}). Jednotlivé zprávy se řídí následujícím formátem:
+	\begin{minted}{xml}
+<134> 1 YYYY-mm-ddTHH:ii:ss.000Z <hostname> dns-export <pid> - - <message>
+	\end{minted}
+	
+	Zpráva je odeslána protokolem UDP na port 514\cite{RFC5424}. Po odeslání je tabulka se statistikami vyprázdněna.
+	
+	
+	\section{Práce s programem}
+	Přehled toho, co lze s aplikací dělat je k dispozici v souboru \textsf{README.md}.
+	
+	\newpage
+	\bibliographystyle{plain}
+	\bibliography{zdroje}
+	
 \end{document}

@@ -1,10 +1,10 @@
 # ISA - Export DNS informací
 > Cílem projektu je vytvořit aplikaci, která bude umět zpracovávat data protokolu DNS (Domain Name System) a vybrané statistiky exportovat pomocí protokolu Syslog na centrální logovací server.
- 
+
 
 ## Omezení projektu
 
-Spolehlivě zpracovává pouze `IPv4` komunikaci používající protokol `UDP`. Protokol `TCP` není plně podporován.
+Aplikace ve výpisech DNS záznamů nezobrazuje podpisy/veřejné klíče (`TA`, `DLV`, `DS`, `RRSIG`, `DNSKEY`, `KEY`), či seznamy typů (Type Bit Maps - `NSEC`, `NSEC3`).
 
 
 ## Práce s programem
