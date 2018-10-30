@@ -2,10 +2,6 @@
 // ISA, 07.10.2018
 // Author: Daniel Dolejska, FIT
 
-#define DEBUG_PRINT_ENABLED
-#define DEBUG_LOG_ENABLED
-#define DEBUG_ERR_ENABLED
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
