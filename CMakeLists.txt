@@ -17,6 +17,7 @@ set(SOURCES
 	src/process.c
 	src/syslog.c
 	src/network_utils.c
+	src/base64.c
 	)
 
 set(INCLUDES
@@ -29,6 +30,7 @@ set(INCLUDES
 	src/process.h
 	src/syslog.h
 	src/network_utils.h
+	src/base64.h
 	)
 
 add_executable(dns-export ${SOURCES} ${INCLUDES})

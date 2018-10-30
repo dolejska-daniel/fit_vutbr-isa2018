@@ -17,6 +17,7 @@
 #include "macros.h"
 #include "network.h"
 #include "dns.h"
+#include "base64.h"
 
 
 char *translate_dns_type( uint16_t type ) {
@@ -220,18 +221,22 @@ int load_resource_record_data( PacketDataPtr pdata, DNSResourceRecordPtr record 
 				for (uint16_t i = 0; i < digest_length; i++)
 					digest[i] = get_packet_data_custom(pdata, offset)[i];
 
+				uint16_t digest_encoded_length = Base64encode_len(digest_length);
+				char *digest_encoded = malloc(digest_encoded_length * sizeof(char));
+				Base64encode(digest_encoded, (char *)digest, (int)digest_length);
+
 				//  Allocate string and paste data
-				record->rdata = malloc(2 * UINT8_STRLEN + UINT16_STRLEN + digest_length);
+				record->rdata = malloc(2 * UINT8_STRLEN + UINT16_STRLEN + digest_encoded_length);
 				if (record->rdata == NULL)
 				{
 					perror("malloc");
 					free(digest);
 					return EXIT_FAILURE;
 				}
-				//sprintf(record->rdata, "%d %d %d %s", key_tag, algorithm, digest_type, digest);
-				sprintf(record->rdata, "%d %d %d *DIGEST*", key_tag, algorithm, digest_type);
+				sprintf(record->rdata, "%d %d %d %s", key_tag, algorithm, digest_type, digest_encoded);
 
 				free(digest);
+				free(digest_encoded);
 			}
 			break;
 		case DNS_TYPE_SOA:
@@ -467,8 +472,12 @@ int load_resource_record_data( PacketDataPtr pdata, DNSResourceRecordPtr record 
 				for (uint16_t i = 0; i < signature_length; i++)
 					signature[i] = get_packet_data_custom(pdata, offset)[i];
 
+				uint16_t signature_encoded_length = Base64encode_len(signature_length);
+				char *signature_encoded = malloc(signature_encoded_length * sizeof(char));
+				Base64encode(signature_encoded, (char *)signature, (int)signature_length);
+
 				//  Allocate string and paste data
-				record->rdata = malloc(3 * UINT8_STRLEN + UINT16_STRLEN + 3 * UINT32_STRLEN + signer_length + signature_length);
+				record->rdata = malloc(3 * UINT8_STRLEN + UINT16_STRLEN + 3 * UINT32_STRLEN + signer_length + signature_encoded_length);
 				if (record->rdata == NULL)
 				{
 					perror("malloc");
@@ -476,10 +485,11 @@ int load_resource_record_data( PacketDataPtr pdata, DNSResourceRecordPtr record 
 					free(signature);
 					return EXIT_FAILURE;
 				}
-				//sprintf(record->rdata, "%s %d %d %d %d %d %d %s %s", translate_dns_type(type_covered), algorithm, labels, ttl, expiration, inception, key_tag, signer, signature);
-				sprintf(record->rdata, "%s %d %d %d %d %d %d %s *SIGNATURE*", translate_dns_type(type_covered), algorithm, labels, ttl, expiration, inception, key_tag, signer);
+				sprintf(record->rdata, "%s %d %d %d %d %d %d %s %s", translate_dns_type(type_covered), algorithm, labels, ttl, expiration, inception, key_tag, signer, signature_encoded);
+
 				free(signer);
 				free(signature);
+				free(signature_encoded);
 			}
 			break;
 		case DNS_TYPE_DNSKEY:
@@ -514,19 +524,25 @@ int load_resource_record_data( PacketDataPtr pdata, DNSResourceRecordPtr record 
 				for (uint16_t i = 0; i < signature_length; i++)
 					signature[i] = get_packet_data_custom(pdata, offset)[i];
 
+				uint16_t signature_encoded_length = Base64encode_len(signature_length);
+				char *signature_encoded = malloc(signature_encoded_length * sizeof(char));
+				Base64encode(signature_encoded, (char *)signature, (int)signature_length);
+
 				//  Allocate string and paste data
-				record->rdata = malloc(2 * UINT8_STRLEN + UINT16_STRLEN + signature_length);
+				record->rdata = malloc(2 * UINT8_STRLEN + UINT16_STRLEN + signature_encoded_length);
 				if (record->rdata == NULL)
 				{
 					perror("malloc");
 					free(signature);
 					return EXIT_FAILURE;
 				}
-				//sprintf(record->rdata, "%d %d %d %s", flags, protocol, algorithm, signature);
-				sprintf(record->rdata, "%d %d %d *PUBLIC_KEY*", flags, protocol, algorithm);
+				sprintf(record->rdata, "%d %d %d %s", flags, protocol, algorithm, signature_encoded);
+
 				free(signature);
+				free(signature_encoded);
 			}
 			break;
+		case DNS_TYPE_SPF:
 		case DNS_TYPE_TXT:
 			{
 				len = (uint16_t)(strlen((char *) get_packet_data(pdata)) + 1); // +1 '\0'
@@ -535,7 +551,6 @@ int load_resource_record_data( PacketDataPtr pdata, DNSResourceRecordPtr record 
 					(record->rdata)[i] = get_packet_data(pdata)[i];
 			}
 			break;
-		case DNS_TYPE_SPF:
 		default:
 			record->rdata = malloc(4);
 			(record->rdata)[0] = '*';

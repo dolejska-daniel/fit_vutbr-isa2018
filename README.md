@@ -4,7 +4,13 @@
 
 ## Omezení projektu
 
-Aplikace ve výpisech DNS záznamů nezobrazuje podpisy/veřejné klíče (`TA`, `DLV`, `DS`, `RRSIG`, `DNSKEY`, `KEY`), či seznamy typů (Type Bit Maps - `NSEC`, `NSEC3`).
+- Aplikace ve výpisech `NSEC` a `NSEC3` DNS záznamů nezobrazuje seznamy typů (Type Bit Maps).
+- Aplikace podporuje zpracovávání pouze následujících DNS záznamů: `A`, `AAAA`, `NS`, `PTR`, `CNAME`, `SRV`, `KX`, `MX`, `TA`, `DLV`, `DS`, `SOA`, `NSEC`, `NSEC3`, `RRSIG`, `DNSKEY`, `KEY`, `SPF` a `TXT`.
+
+
+## Rozšíření projektu
+
+- Aplikace podporuje zpracovávání fragmentovaných DNS odpovědí přenášených protokolem `TCP`.
 
 
 ## Práce s programem
@@ -97,14 +103,7 @@ $MESSAGE\n (0-n)
 ```
 
 K výpisu statistik dojde buď na konci časového intervalu pro agregaci statistik,
-v případě dokončení zpracování `.pcap` souboru či při zaslání `SIGUSR1` signálu.
-
-Program na `stdout` dále vypisuje jeden aktivní řádek, jehož obsah mění
-v závislosti na posledním zpracovaném DNS záznamu. Před výpisem statistik jej
-program automaticky maže. Řádek se řídí následujícím formátem:
-```php
-$MESSAGE +1
-```
+v případě dokončení zpracování `.pcap` souboru, či při zaslání `SIGUSR1` signálu.
 
 
 #### Formát syslog zprávy
@@ -127,16 +126,17 @@ Součástí projektu jsou následující soubory:
 **Zdrojové soubory**
 
 | Cesta k souboru       | Hlavičkový soubor
-|-----------------------|----------------------------------
+|-----------------------|---------------------------------- 
+| `src/base64.c`        | `src/base64.h`
 | `src/dns.c`           | `src/dns.h`
 | `src/ht.c`            | `src/ht.h`
 | `src/main.c`          | `src/main.h`
+|                       | `src/macros.h` 
 | `src/network.c`       | `src/network.h`
 | `src/network_utils.c` | `src/network_utils.h`
 | `src/pcap.c`          | `src/pcap.h`
 | `src/process.c`       | `src/process.h`
 | `src/syslog.c`        | `src/syslog.h` 
-|                       | `src/macros.h` 
 
 **Soubory dokumentace**
 

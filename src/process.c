@@ -385,6 +385,11 @@ int process_traffic( uint8_t *data )
 			//	DNS packet is no longer needed
 			destroy_dns_packet(dns);
 		}
+		else
+		{
+			DEBUG_LOG("PROCESS[UDP]", "Wrong packet source port...");
+			DEBUG_PRINT("\tsrc: %d, dst: %d\n", packet->udp_header->source, packet->udp_header->dest);
+		}
 
 		//	UDP packet is no longer needed
 		destroy_udp_packet(packet);
@@ -433,9 +438,11 @@ void process_dns_resource_record( DNSResourceRecordPtr record )
 		sprintf(entry, "%s %s \"%s\"", record->name, type, record->rdata);
 	}
 
+	/*
 	printf("\33[2K\r");
 	fprintf(stdout, "%s +1", entry);
 	fflush(stdout);
+	 */
 
 	//  Do not free created items, item key will be freed before cleaning the table
 	if (htIncrease(entry_table, entry) != ITEM_STATUS_CREATED)
@@ -448,7 +455,7 @@ void send_statistics( short clear_table, short force_print )
 	//  Send stats
 	DEBUG_LOG("PROCESS", "Sending statistics...");
 
-	printf("\33[2K\r");
+	//printf("\33[2K\r");
 	if (IS_FLAG_ACTIVE(FLAG_SERVER) && force_print == 0)
 	{
 		htWalk(entry_table, &entry_sender);
