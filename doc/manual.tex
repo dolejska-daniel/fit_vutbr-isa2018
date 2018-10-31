@@ -88,7 +88,8 @@
 
 	\subsection{Zpracování dat} \label{section:data-processing}
 	\subsubsection{Packet} \label{section:data-processing:packet}
-	Pro účely zpracování dat z raw socketů jsem použil a rozšířil základ z loňského projektu do předmětu IPK. Zpracování využívá vestavěné struktury popisující Ethernet, IP\cite{RFC0791}, UPD\cite{RFC0768} i TCP\cite{RFC0793} hlavičky dle definovaných standardů.
+	Pro účely zpracování dat z raw socketů jsem použil a rozšířil základ z loňského projektu do předmětu IPK.
+	Zpracování využívá vestavěné struktury popisující Ethernet, IP\cite{RFC0791}, UPD\cite{RFC0768} i TCP\cite{RFC0793} hlavičky dle definovaných standardů.
 	
 	Z IP hlavičky je nejdříve zjištěno, zda se jedná o packet příslušící protokolu DNS - byl odeslán z/na port \textsf{53}\cite{RFC1035}.
 	Přenosy neobsahující odpovědi DNS serveru jsou aplikací ignorovány.
@@ -103,8 +104,9 @@
 	\subsubsection{DNS} \label{section:data-processing:dns}
 	Ze získaných dat jsou nejdříve zpracovány statické položky: ID transakce, počty obsažených odpovědí a další doplňující informace\cite{RFC1035}.
 	
-	Na základě počtů, získaných z DNS hlavičky, jsou následně zpracovávány jednotlivé DNS záznamy dle jejich specifikací\cite{RFC1035}\cite{RFC4034}.
-	Položky složitějších záznamů jsou v textové podobě reprezentovány číselně oddělené mezerami, veřejné klíče, hashe a podpisy jsou zobrazovány ve formátu Base64.
+	Na základě počtů, získaných z DNS hlavičky, jsou následně zpracovávány jednotlivé DNS záznamy dle jejich specifikací\cite{RFC1035,RFC4034}.
+	Položky složitějších záznamů jsou v textové podobě reprezentovány číselně oddělené mezerami, veřejné klíče, hashe a podpisy jsou zobrazovány ve formátu Base64 bez mezer.
+	Aplikace se snaží co nejvíce přiblížit formátu výpisů příkazu \texttt{dig}.
 	
 	\subsection{Vyhodnocování dat}
 	Kompletně zpracované odpovědi DNS serverů jsou po jedné vkládány do tabulky s rozptýlenými položkami.
@@ -146,7 +148,8 @@
 	Po uplynutí daného časového intervalu (pokud je nastaveno odesílání statistik na syslog server) nebo po dokončení zpracování souboru (pokud není explicitně nastaven jiný časový interval než výchozí) dojde k odeslání aktuálních statistik na specifikovaný syslog server.
 	
 	Zprávy nejsou na syslog server odesílány samostatně - aplikace se snaží poskládat co nejvíce po sobě jdoucích zpráv do jednoho přenosu v maximální délce 1024 znaků.
-	Seskupené zprávy jsou mezi sebou v rámci daného packetu odděleny pomocí CRLF (\texttt{0x0d 0x0a}). Jednotlivé zprávy se řídí následujícím formátem:
+	Seskupené zprávy jsou mezi sebou v rámci daného packetu odděleny pomocí CRLF (\texttt{0x0d 0x0a}).
+	Jednotlivé zprávy se řídí následujícím formátem:
 	\begin{minted}{xml}
 <134> 1 YYYY-mm-ddTHH:ii:ss.000Z <hostname> dns-export <pid> - - <message>
 	\end{minted}
