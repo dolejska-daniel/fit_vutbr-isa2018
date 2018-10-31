@@ -134,6 +134,7 @@
 	\subsection{Odesílání dat} \label{section:data-sending}
 	\subsubsection{Výpis - \texttt{stdout}}
 	Po uplynutí daného časového intervalu (pokud není nastaveno odesílání statistik na syslog server) nebo po přijetí signálu \texttt{USR1} dojde k výpisu aktuálních statistik na standardní výstup (\texttt{stdout}).
+	V případě monitorování provozu na síťovém rozhraní se může odeslání/výpis statistik zpozdit až o čtvrtinu nastaveného intervalu.
 	
 	Statistiky jsou vypisovány v následujícím formátu (čísla v hranatých závorkách udávají počet výskytů v rámci jednoho výpisu):
 	\begin{minted}{xml}
