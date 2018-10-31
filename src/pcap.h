@@ -4,7 +4,6 @@
 
 
 #include <stdint.h>
-#include <bits/types/FILE.h>
 
 #ifndef _PCAP_H
 #define _PCAP_H

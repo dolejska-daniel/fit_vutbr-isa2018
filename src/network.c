@@ -25,6 +25,7 @@ PacketDataPtr create_packet_data(uint8_t *data, uint16_t offset)
     PacketDataPtr pdata = (PacketDataPtr) malloc(sizeof(PacketData));
     if (pdata == NULL)
     {
+		ERR("Failed to allocate memory for packet data holder...");
         perror("malloc");
         return NULL;
     }
@@ -64,6 +65,7 @@ TCPPacketPtr parse_tcp_packet( uint8_t *packet_data )
     TCPPacketPtr packet = (TCPPacketPtr) malloc(sizeof(TCPPacket));
     if (packet == NULL)
     {
+		ERR("Failed to allocate memory for TCP packet...");
         perror("malloc");
         return NULL;
     }
@@ -106,6 +108,7 @@ UDPPacketPtr parse_udp_packet( uint8_t *packet_data )
     UDPPacketPtr packet = (UDPPacketPtr) malloc(sizeof(UDPPacket));
 	if (packet == NULL)
 	{
+		ERR("Failed to allocate memory for UDP packet...");
 		perror("malloc");
         return NULL;
 	}
@@ -209,6 +212,8 @@ void eth_encaps( uint8_t *packet, uint16_t *packet_len, const uint8_t *source_ma
 struct iphdr *get_ip_header( uint8_t *packet )
 {
     //DEBUG_LOG("IPH-GET", "Getting IP header...");
+    assert(packet != NULL);
+
     struct iphdr *header = (struct iphdr *) (packet + get_eth_header_size());
     header->tot_len = ntohs(header->tot_len);
     header->id      = ntohs(header->id);
@@ -224,11 +229,13 @@ uint16_t get_ip_header_size()
 
 void print_ip_header( const UDPPacketPtr packet )
 {
+	assert(packet != NULL);
     print_ip_header_struct(packet->ip_header);
 }
 
 void print_ip_header_struct( const struct iphdr *iph )
 {
+	assert(iph != NULL);
 #ifdef DEBUG_PRINT_ENABLED
     fprintf(
             stderr, "IP_HEADER (size: %u): {\n\tversion\t%d\n\tihl\t%d\n\ttos\t%d\n\tid\t%#x\n\tttl\t%d\n\tprotocol\t%d\n\tsaddr\t%#x, %hu.%hu.%hu.%hu\n\tdaddr\t%#x, %hu.%hu.%hu.%hu\n\ttot_len\t%d\n\tcheck\t%#x\n}\n",
@@ -252,6 +259,9 @@ void print_ip_header_struct( const struct iphdr *iph )
 void ip_encaps( uint8_t *packet, uint16_t *packet_len )
 {
     DEBUG_LOG("IPH-ENCAPS", "Creating IP header...");
+	assert(packet != NULL);
+	assert(packet_len != NULL);
+
     struct iphdr *iph = get_ip_header(packet);
 
     //  IP header options
@@ -283,6 +293,8 @@ void ip_encaps( uint8_t *packet, uint16_t *packet_len )
 struct udphdr *get_udp_header( uint8_t *packet )
 {
     //DEBUG_LOG("UDPH-GET", "Getting UDP header...");
+	assert(packet != NULL);
+
     struct udphdr *header = (struct udphdr *) (packet + get_ip_header_size() + get_eth_header_size());
     header->check  = ntohs(header->check);
     header->source = ntohs(header->source);
@@ -299,11 +311,13 @@ uint16_t get_udp_header_size()
 
 void print_udp_header( const UDPPacketPtr packet )
 {
-    print_udp_header_struct(packet->udp_header);
+	assert(packet != NULL);
+	print_udp_header_struct(packet->udp_header);
 }
 
 void print_udp_header_struct( const struct udphdr *udph )
 {
+	assert(udph != NULL);
 #ifdef DEBUG_PRINT_ENABLED
     fprintf(
             stderr, "UDP_HEADER (size: %u): {\n\tsource\t%u\n\tdest\t%u\n\tlen\t%d\n\tcheck\t%#x\n}\n",
@@ -319,6 +333,9 @@ void print_udp_header_struct( const struct udphdr *udph )
 void udp_encaps( uint8_t *packet, uint16_t *packet_len, uint16_t source_port, uint16_t destination_port )
 {
     DEBUG_LOG("UDPH-ENCAPS", "Creating UDP header...");
+	assert(packet != NULL);
+	assert(packet_len != NULL);
+
     struct udphdr *udph = get_udp_header(packet);
 
     //  UDP header options
@@ -345,6 +362,8 @@ void udp_encaps( uint8_t *packet, uint16_t *packet_len, uint16_t source_port, ui
 struct tcphdr *get_tcp_header( uint8_t *packet )
 {
     //DEBUG_LOG("TCPH-GET", "Getting TCP header...");
+	assert(packet != NULL);
+
     struct tcphdr *header = (struct tcphdr *) (packet + get_ip_header_size() + get_eth_header_size());
     header->check  = ntohs(header->check);
     header->source = ntohs(header->source);
@@ -355,16 +374,19 @@ struct tcphdr *get_tcp_header( uint8_t *packet )
 
 uint16_t get_tcp_header_size( TCPPacketPtr packet )
 {
+	assert(packet != NULL);
     return (uint16_t)(packet->tcp_header->doff * 4u);
 }
 
 void print_tcp_header( const TCPPacketPtr packet )
 {
+	assert(packet != NULL);
 	print_tcp_header_struct(packet->tcp_header, get_tcp_header_size(packet));
 }
 
 void print_tcp_header_struct( const struct tcphdr *tcph, uint16_t size )
 {
+	assert(tcph != NULL);
 #ifdef DEBUG_PRINT_ENABLED
 	fprintf(
 		stderr, "TCP_HEADER (size: %u): {\n\tsource\t%u\n\tdest\t%u\n\tcheck\t%#x\n\tseq\t%u\n\tack\t%u\n\tack_seq\t%u\n\tflags\t%#x\n\tFIN\t%#x\n\tSYN\t%#x\n\tACK\t%#x\n}\n",
@@ -390,6 +412,7 @@ void print_tcp_header_struct( const struct tcphdr *tcph, uint16_t size )
 
 unsigned short check_sum( unsigned short *buf, int nwords )
 {
+	assert(buf != NULL);
 	unsigned long sum;
 	for(sum=0; nwords>0; nwords--)
 		sum += *buf++;
@@ -405,5 +428,6 @@ uint16_t get_header_sizes_udp()
 
 uint16_t get_header_sizes_tcp( TCPPacketPtr packet )
 {
+	assert(packet != NULL);
 	return get_eth_header_size() + get_ip_header_size() + get_tcp_header_size(packet);
 }

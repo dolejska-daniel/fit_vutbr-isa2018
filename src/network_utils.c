@@ -14,11 +14,13 @@
 
 uint16_t get_packet_L3_protocol( const uint8_t *packet )
 {
+	assert(packet != NULL);
 	return ntohs(((struct ethhdr *) packet)->h_proto);
 }
 
 uint16_t get_packet_L4_protocol( const uint8_t *packet )
 {
+	assert(packet != NULL);
 	return ((struct iphdr *) (packet + get_eth_header_size()))->protocol;
 }
 
@@ -29,6 +31,9 @@ uint16_t get_packet_L4_protocol( const uint8_t *packet )
 
 int hostname_to_netaddress( const char *target_hostname, SocketAddressPtr address )
 {
+	assert(target_hostname != NULL);
+	assert(address != NULL);
+
 	/************************************************************************
 	 * Castecne prevzato z:
 	 * https://www.binarytides.com/hostname-to-ip-address-c-sockets-linux/
@@ -39,7 +44,7 @@ int hostname_to_netaddress( const char *target_hostname, SocketAddressPtr addres
 	if ((he = gethostbyname(target_hostname)) == NULL)
 	{
 		//  An error occured
-		ERR("An error occured while translating server hostname.\n");
+		ERR("An error occured while translating server hostname...\n");
 		herror("gethostbyname");
 		return EXIT_FAILURE;
 	}
@@ -53,12 +58,15 @@ int hostname_to_netaddress( const char *target_hostname, SocketAddressPtr addres
 		return EXIT_SUCCESS;
 	}
 
-	ERR("Failed to translate hostname to IP address.\n");
+	ERR("Failed to translate hostname to IP address...\n");
 	return EXIT_FAILURE;
 }
 
 int straddress_to_netaddress( const char *target_address, SocketAddressPtr address )
 {
+	assert(target_address != NULL);
+	assert(address != NULL);
+
 	if (inet_pton(AF_INET, target_address, &address->sin_addr))
 	{
 		address->sin_family = AF_INET;

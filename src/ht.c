@@ -7,6 +7,7 @@
 #include <stdio.h>
 
 #include "ht.h"
+#include "macros.h"
 
 
 unsigned int HTSIZE = MAX_HTSIZE;
@@ -50,6 +51,13 @@ void htInsert ( tHTable* ptrht, tKey key, tData data )
 	int hash = hashCode(key);
 	tHTItem *nextItem = (*ptrht)[hash];
 	item = malloc(sizeof(tHTItem));
+	if (item == NULL)
+	{
+		ERR("Failed to allocate memory for hash table item...");
+		perror("malloc");
+		return;
+	}
+
 	item->key = key;
 	item->data = data;
 	item->ptrnext = nextItem;

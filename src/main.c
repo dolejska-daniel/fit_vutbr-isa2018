@@ -152,8 +152,8 @@ int main(int argc, char **argv)
 	entry_table = malloc(HTSIZE * sizeof(tHTItem));
 	if (entry_table == NULL)
 	{
-		perror("malloc");
 		ERR("Failed to allocate hash table, application is unable to continue and will now exit.\n");
+		perror("malloc");
 		exit(EXIT_FAILURE);
 	}
 	htInit(entry_table);

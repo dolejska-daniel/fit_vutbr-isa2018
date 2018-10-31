@@ -25,6 +25,7 @@ SyslogSenderPtr init_syslog_sender( char *server )
 	SyslogSenderPtr sender = malloc(sizeof(SyslogSender));
 	if (sender == NULL)
 	{
+		ERR("Failed to allocate memory for syslog sender...");
 		perror("malloc");
 		return NULL;
 	}
@@ -42,6 +43,7 @@ SyslogSenderPtr init_syslog_sender( char *server )
 	//  UDP socket
 	if ((sender->sock = socket(sender->receiver.sin_family, SOCK_DGRAM, IPPROTO_UDP)) == -1)
 	{
+		ERR("Failed to open socket for syslog sender...");
 		perror("socket");
 		destroy_syslog_sender(sender);
 		return NULL;
@@ -116,8 +118,8 @@ int syslog_buffer_flush( SyslogSenderPtr sender )
 
 	if (status == -1)
 	{
+		ERR("Failed to send syslog message...");
 		perror("send");
-		ERR("Failed to send syslog message.");
 		return EXIT_FAILURE;
 	}
 
@@ -137,7 +139,7 @@ char *syslog_get_timestamp()
 	char *timestamp = malloc(25);
 	if (timestamp == NULL)
 	{
-		ERR("Failed to allocate memory for current timestamp.");
+		ERR("Failed to allocate memory for current syslog timestamp...");
 		perror("malloc");
 		return NULL;
 	}

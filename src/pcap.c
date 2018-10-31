@@ -21,6 +21,7 @@ PcapFilePtr pcap_file_open(char *filepath)
     PcapFilePtr file = malloc(sizeof(PcapFile));
     if (file == NULL)
     {
+		ERR("Failed to allocate memory for file...");
         perror("malloc");
         return NULL;
     }
@@ -31,14 +32,19 @@ PcapFilePtr pcap_file_open(char *filepath)
     file->fd = fopen(filepath, "r"); // fd closed in destructor
     if (file->fd == NULL)
 	{
-		DEBUG_ERR("PCAP-FILE-OPEN", "Failed to open the file...");
+		ERR("Failed to open the file...");
     	perror("fopen");
     	free(file);
     	return NULL;
 	}
 
     //	Read file global header
-    fread(&file->header, sizeof(PcapGlobalHeader), 1, file->fd);
+    if (fread(&file->header, sizeof(PcapGlobalHeader), 1, file->fd) != 1)
+	{
+		ERR("Failed to read global file header...");
+    	free(file);
+    	return NULL;
+	}
 
 	DEBUG_PRINT("file->header.version: %d.%d\n", file->header.version_major, file->header.version_minor);
 	DEBUG_PRINT("file->header.network: %d\n", file->header.network);
@@ -47,7 +53,7 @@ PcapFilePtr pcap_file_open(char *filepath)
     //	Initialize packet array
 	file->packet_count = 0;
 	file->packet_max   = 128;
-	file->packets	   = calloc(file->packet_max, sizeof(PcapPacketPtr));
+	file->packets	   = malloc(file->packet_max * sizeof(PcapPacketPtr));
 
 	if (pcap_file_process(file) != EXIT_SUCCESS)
 	{
@@ -98,7 +104,7 @@ int pcap_file_process(PcapFilePtr file)
 			if (file->packets == NULL)
 			{
 				//	TODO: Error message?
-				DEBUG_ERR("PCAP-FILE-PROCESS", "Failed to reallocate packet array...");
+				ERR("Failed to realloc packet array...");
 				perror("realloc");
 				return EXIT_FAILURE;
 			}
@@ -137,6 +143,7 @@ PcapPacketPtr pcap_packet_parseNext(PcapFilePtr file)
 	PcapPacketPtr packet = malloc(sizeof(PcapPacket));
 	if (packet == NULL)
 	{
+		ERR("Failed to allocate memory for packet...");
 		perror("malloc");
 		return NULL;
 	}
@@ -146,6 +153,7 @@ PcapPacketPtr pcap_packet_parseNext(PcapFilePtr file)
 	if (fread(&packet->header, sizeof(PcapPacketHeader), 1, file->fd) != 1)
 	{
 		//	Reading failed / file is empty
+		ERR("Failed to read packet header...");
 		//	TODO: Check for error?
 		free(packet);
 		return NULL;
@@ -157,13 +165,14 @@ PcapPacketPtr pcap_packet_parseNext(PcapFilePtr file)
     DEBUG_LOG("PCAP-PACKET-PARSENEXT", "Reading packet data...");
 	uint32_t count = packet->header.incl_len;
 	//	Allocate memory for actual packet data based on information from header
-	packet->data = calloc(count, sizeof(uint8_t)); // TODO: validate incl_len (orig_len?)
+	packet->data = malloc(count * sizeof(uint8_t));
 	//	Read packet data from file
 	if (fread(packet->data, sizeof(uint8_t), count, file->fd) != count)
 	{
 		//	Reading failed, report error & free memory
 		pcap_packet_destroy(packet);
 
+		ERR("Failed to read packet body...");
 		perror("fread");
 		return NULL;
 	}
