@@ -142,7 +142,9 @@ Součástí projektu jsou následující soubory:
 
 | Cesta k souboru       
 |-----------------------
+| `doc/manual.pdf`
 | `doc/manual.tex`
+| `doc/zdroje.bib`
 | `dns-export.1`
 | `README.md` 
 
