@@ -94,9 +94,11 @@ void pcap_file_foreach(PcapFilePtr file, void (*cb)(PcapPacketPtr));
 
 /**
  *
- * @return PcapPacketPtr|NULL
+ * @param file
+ * @param packet
+ * @return exit status code
  */
-PcapPacketPtr pcap_packet_parseNext(PcapFilePtr);
+int pcap_packet_parseNext(PcapFilePtr file, PcapPacketPtr *packet_out);
 
 /**
  *

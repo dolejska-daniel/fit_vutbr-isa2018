@@ -83,7 +83,7 @@ int load_resource_record_data( PacketDataPtr pdata, DNSResourceRecordPtr record 
 				record->rdata = malloc(INET_ADDRSTRLEN);
 				if (record->rdata == NULL)
 				{
-					ERR("Failed to allocate memory for A resource record data...");
+					ERR("Failed to allocate memory for A resource record data...\n");
 					perror("malloc");
 					return EXIT_FAILURE;
 				}
@@ -96,7 +96,7 @@ int load_resource_record_data( PacketDataPtr pdata, DNSResourceRecordPtr record 
 				record->rdata = malloc(INET6_ADDRSTRLEN);
 				if (record->rdata == NULL)
 				{
-					ERR("Failed to allocate memory for AAAA resource record data...");
+					ERR("Failed to allocate memory for AAAA resource record data...\n");
 					perror("malloc");
 					return EXIT_FAILURE;
 				}
@@ -141,7 +141,7 @@ int load_resource_record_data( PacketDataPtr pdata, DNSResourceRecordPtr record 
 				char *target = malloc(32 * sizeof(char));
 				if (target == NULL)
 				{
-					ERR("Failed to allocate memory for SRV resource record target...");
+					ERR("Failed to allocate memory for SRV resource record target...\n");
 					perror("malloc");
 					return EXIT_FAILURE;
 				}
@@ -151,7 +151,7 @@ int load_resource_record_data( PacketDataPtr pdata, DNSResourceRecordPtr record 
 				record->rdata = malloc(3 * UINT16_STRLEN + target_length + 4); // +3 whitespace, +1 '\0'
 				if (record->rdata == NULL)
 				{
-					ERR("Failed to allocate memory for SRV resource record data...");
+					ERR("Failed to allocate memory for SRV resource record data...\n");
 					perror("malloc");
 					return EXIT_FAILURE;
 				}
@@ -297,7 +297,7 @@ int load_resource_record_data( PacketDataPtr pdata, DNSResourceRecordPtr record 
 				char *mname = malloc(32 * sizeof(char));
 				if (mname == NULL)
 				{
-					ERR("Failed to allocate memory for SOA resource record mname...");
+					ERR("Failed to allocate memory for SOA resource record mname...\n");
 					perror("malloc");
 					return EXIT_FAILURE;
 				}
@@ -308,7 +308,7 @@ int load_resource_record_data( PacketDataPtr pdata, DNSResourceRecordPtr record 
 				char *rname = malloc(32 * sizeof(char));
 				if (rname == NULL)
 				{
-					ERR("Failed to allocate memory for SOA resource record rname...");
+					ERR("Failed to allocate memory for SOA resource record rname...\n");
 					perror("malloc");
 					free(mname);
 					return EXIT_FAILURE;
@@ -327,7 +327,7 @@ int load_resource_record_data( PacketDataPtr pdata, DNSResourceRecordPtr record 
 				record->rdata = malloc(mname_length + rname_length + 5 * UINT32_STRLEN + 7); //  +7 = 6 spaces, 1 '\0'
 				if (record->rdata == NULL)
 				{
-					ERR("Failed to allocate memory for SOA resource record data...");
+					ERR("Failed to allocate memory for SOA resource record data...\n");
 					perror("malloc");
 					free(mname);
 					free(rname);
@@ -356,7 +356,7 @@ int load_resource_record_data( PacketDataPtr pdata, DNSResourceRecordPtr record 
 				char *next_domain_name = malloc(32 * sizeof(char));
 				if (next_domain_name == NULL)
 				{
-					ERR("Failed to allocate memory for NSEC resource record next domain name...");
+					ERR("Failed to allocate memory for NSEC resource record next domain name...\n");
 					perror("malloc");
 					return EXIT_FAILURE;
 				}
@@ -370,7 +370,7 @@ int load_resource_record_data( PacketDataPtr pdata, DNSResourceRecordPtr record 
 				record->rdata = malloc(next_domain_name_length + 1 + strlen("*TYPES*") + 1); //  +1 whitespace, +1 '\0'
 				if (record->rdata == NULL)
 				{
-					ERR("Failed to allocate memory for NSEC resource record data...");
+					ERR("Failed to allocate memory for NSEC resource record data...\n");
 					perror("malloc");
 					free(next_domain_name);
 					return EXIT_FAILURE;
@@ -468,7 +468,7 @@ int load_resource_record_data( PacketDataPtr pdata, DNSResourceRecordPtr record 
 				char *signer = malloc(32 * sizeof(char));
 				if (signer == NULL)
 				{
-					ERR("Failed to allocate memory for RRSIG resource record signer...");
+					ERR("Failed to allocate memory for RRSIG resource record signer...\n");
 					perror("malloc");
 					return EXIT_FAILURE;
 				}
@@ -479,7 +479,7 @@ int load_resource_record_data( PacketDataPtr pdata, DNSResourceRecordPtr record 
 				uint8_t *signature = malloc(signature_length * sizeof(uint8_t));
 				if (signature == NULL)
 				{
-					ERR("Failed to allocate memory for RRSIG resource record signature...");
+					ERR("Failed to allocate memory for RRSIG resource record signature...\n");
 					perror("malloc");
 					return EXIT_FAILURE;
 				}
@@ -494,7 +494,7 @@ int load_resource_record_data( PacketDataPtr pdata, DNSResourceRecordPtr record 
 				record->rdata = malloc(3 * UINT8_STRLEN + UINT16_STRLEN + 3 * UINT32_STRLEN + signer_length + signature_encoded_length);
 				if (record->rdata == NULL)
 				{
-					ERR("Failed to allocate memory for RRSIG resource record data...");
+					ERR("Failed to allocate memory for RRSIG resource record data...\n");
 					perror("malloc");
 					free(signer);
 					free(signature);
@@ -633,7 +633,7 @@ void load_domain_name( char **destination, PacketDataPtr pdata, uint16_t *offset
 				*destination = realloc(*destination, size);
 				if (*destination == NULL)
                 {
-				    ERR("Failed to realloc domain name...");
+				    ERR("Failed to realloc domain name...\n");
 				    perror("realloc");
 				    return;
                 }
@@ -683,7 +683,7 @@ DNSPacketPtr parse_dns_packet( PacketDataPtr pdata )
 	DNSPacketPtr packet = (DNSPacketPtr) malloc(sizeof(DNSPacket));
 	if (packet == NULL)
 	{
-		ERR("Failed to allocate memory for DNS packet...");
+		ERR("Failed to allocate memory for DNS packet...\n");
 		perror("malloc");
 		return NULL;
 	}
@@ -708,7 +708,7 @@ DNSPacketPtr parse_dns_packet( PacketDataPtr pdata )
 		packet->questions = malloc(packet->question_count * sizeof(DNSQueryPtr));
 		if (packet->questions == NULL)
 		{
-			ERR("Failed to allocate memory for DNS packet questions...");
+			ERR("Failed to allocate memory for DNS packet questions...\n");
 			perror("malloc");
 			destroy_dns_packet(packet);
 			return NULL;
@@ -724,7 +724,7 @@ DNSPacketPtr parse_dns_packet( PacketDataPtr pdata )
 		packet->answers = malloc(packet->answer_count * sizeof(DNSResourceRecordPtr));
 		if (packet->answers == NULL)
 		{
-			ERR("Failed to allocate memory for DNS packet answers...");
+			ERR("Failed to allocate memory for DNS packet answers...\n");
 			perror("malloc");
 			destroy_dns_packet(packet);
 			return NULL;
@@ -740,7 +740,7 @@ DNSPacketPtr parse_dns_packet( PacketDataPtr pdata )
 		packet->authorities = malloc(packet->authority_count * sizeof(DNSResourceRecordPtr));
 		if (packet->authorities == NULL)
 		{
-			ERR("Failed to allocate memory for DNS packet authorities...");
+			ERR("Failed to allocate memory for DNS packet authorities...\n");
 			perror("malloc");
 			destroy_dns_packet(packet);
 			return NULL;
@@ -756,7 +756,7 @@ DNSPacketPtr parse_dns_packet( PacketDataPtr pdata )
 		packet->additionals = malloc(packet->additional_count * sizeof(DNSResourceRecordPtr));
 		if (packet->additionals == NULL)
 		{
-			ERR("Failed to allocate memory for DNS packet additionals...");
+			ERR("Failed to allocate memory for DNS packet additionals...\n");
 			perror("malloc");
 			destroy_dns_packet(packet);
 			return NULL;
@@ -776,16 +776,17 @@ DNSQueryPtr parse_dns_packet_query( PacketDataPtr pdata )
 	DNSQueryPtr query = (DNSQueryPtr) malloc(sizeof(DNSQuery));
 	if (query == NULL)
 	{
-		ERR("Failed to allocate memory for DNS packet query...");
+		ERR("Failed to allocate memory for DNS packet query...\n");
 		perror("malloc");
 		return NULL;
 	}
+	memset(query, 0, sizeof(DNSQuery));
 
 	uint16_t name_length = 0;
 	query->name = malloc(32 * sizeof(char));
 	if (query->name == NULL)
 	{
-		ERR("Failed to allocate memory for DNS packet query domain name...");
+		ERR("Failed to allocate memory for DNS packet query domain name...\n");
 		perror("malloc");
 		destroy_dns_packet_query(query);
 		return NULL;
@@ -809,16 +810,17 @@ DNSResourceRecordPtr parse_dns_packet_resource_record( PacketDataPtr pdata )
 	DNSResourceRecordPtr record = (DNSResourceRecordPtr) malloc(sizeof(DNSResourceRecord));
 	if (record == NULL)
 	{
-		ERR("Failed to allocate memory for DNS packet resource record...");
+		ERR("Failed to allocate memory for DNS packet resource record...\n");
 		perror("malloc");
 		return NULL;
 	}
+	memset(record, 0, sizeof(DNSResourceRecord));
 
 	uint16_t name_length = 0;
 	record->name = malloc(32 * sizeof(char));
 	if (record->name == NULL)
 	{
-		ERR("Failed to allocate memory for DNS packet resource record domain name...");
+		ERR("Failed to allocate memory for DNS packet resource record domain name...\n");
 		perror("malloc");
 		destroy_dns_packet_resource_record(record);
 		return NULL;
@@ -912,6 +914,7 @@ void destroy_dns_packet_resource_record( DNSResourceRecordPtr record )
 
 void print_dns_packet( DNSPacketPtr packet )
 {
+	assert(packet != NULL);
 #ifdef DEBUG_PRINT_ENABLED
 	fprintf(
 			stderr,
@@ -957,6 +960,7 @@ void print_dns_packet( DNSPacketPtr packet )
 
 void print_dns_packet_query( DNSQueryPtr query )
 {
+	assert(query != NULL);
 #ifdef DEBUG_PRINT_ENABLED
 	fprintf(
 			stderr, "DNS_PACKET_QUERY: {\n\tname\t%s\n\ttype\t%d (%s)\n\tclass\t%#x (%s)\n}\n",
@@ -969,6 +973,7 @@ void print_dns_packet_query( DNSQueryPtr query )
 
 void print_dns_packet_resource_record( DNSResourceRecordPtr record )
 {
+	assert(record != NULL);
 #ifdef DEBUG_PRINT_ENABLED
 	fprintf(
 			stderr, "DNS_PACKET_RESOURCE_RECORD: {\n\tname\t%s\n\ttype\t%d (%s)\n\tclass\t%#x (%s)\n\tttl\t%d\n\trdata_length\t%d\n\trdata\t%s\n}\n",

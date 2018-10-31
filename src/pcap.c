@@ -21,7 +21,7 @@ PcapFilePtr pcap_file_open(char *filepath)
     PcapFilePtr file = malloc(sizeof(PcapFile));
     if (file == NULL)
     {
-		ERR("Failed to allocate memory for file...");
+		ERR("Failed to allocate memory for file...\n");
         perror("malloc");
         return NULL;
     }
@@ -32,17 +32,17 @@ PcapFilePtr pcap_file_open(char *filepath)
     file->fd = fopen(filepath, "r"); // fd closed in destructor
     if (file->fd == NULL)
 	{
-		ERR("Failed to open the file...");
+		ERR("Failed to open the file...\n");
     	perror("fopen");
-    	free(file);
+    	pcap_file_close(file);
     	return NULL;
 	}
 
     //	Read file global header
     if (fread(&file->header, sizeof(PcapGlobalHeader), 1, file->fd) != 1)
 	{
-		ERR("Failed to read global file header...");
-    	free(file);
+		ERR("Failed to read global file header...\n");
+		pcap_file_close(file);
     	return NULL;
 	}
 
@@ -54,6 +54,12 @@ PcapFilePtr pcap_file_open(char *filepath)
 	file->packet_count = 0;
 	file->packet_max   = 128;
 	file->packets	   = malloc(file->packet_max * sizeof(PcapPacketPtr));
+	if (file->packets == NULL)
+	{
+		ERR("Failed to allocate memory for packet pointers...\n");
+		pcap_file_close(file);
+		return NULL;
+	}
 
 	if (pcap_file_process(file) != EXIT_SUCCESS)
 	{
@@ -93,7 +99,10 @@ int pcap_file_process(PcapFilePtr file)
 	assert(file != NULL);
 
 	DEBUG_LOG("PCAP-FILE-PROCESS", "Processing file...");
-	PcapPacketPtr packet = pcap_packet_parseNext(file);
+	PcapPacketPtr packet;
+	if (pcap_packet_parseNext(file, &packet) != EXIT_SUCCESS)
+		return EXIT_FAILURE;
+
 	while (packet != NULL)
 	{
 		if (file->packet_count + 1 > file->packet_max)
@@ -104,7 +113,7 @@ int pcap_file_process(PcapFilePtr file)
 			if (file->packets == NULL)
 			{
 				//	TODO: Error message?
-				ERR("Failed to realloc packet array...");
+				ERR("Failed to realloc packet array...\n");
 				perror("realloc");
 				return EXIT_FAILURE;
 			}
@@ -112,7 +121,10 @@ int pcap_file_process(PcapFilePtr file)
 		}
 
 		file->packets[file->packet_count++] = packet;
-		packet = pcap_packet_parseNext(file);
+		if (pcap_packet_parseNext(file, &packet) != EXIT_SUCCESS)
+			return EXIT_FAILURE;
+		if (packet == NULL)
+			break;
 	}
 
 	return EXIT_SUCCESS;
@@ -134,29 +146,43 @@ void pcap_file_foreach(PcapFilePtr file, void (*cb)(PcapPacketPtr))
 	}
 }
 
-PcapPacketPtr pcap_packet_parseNext(PcapFilePtr file)
+int pcap_packet_parseNext(PcapFilePtr file, PcapPacketPtr *packet_out)
 {
 	assert(file != NULL);
+	assert(packet_out != NULL);
 
     DEBUG_LOG("PCAP-PACKET-PARSENEXT", "Allocating structure...");
 	//	Allocate memory for PcapPacket structure
 	PcapPacketPtr packet = malloc(sizeof(PcapPacket));
 	if (packet == NULL)
 	{
-		ERR("Failed to allocate memory for packet...");
+		ERR("Failed to allocate memory for packet...\n");
 		perror("malloc");
-		return NULL;
+
+		*packet_out = NULL;
+		return EXIT_FAILURE;
 	}
+	memset(packet, 0, sizeof(PcapPacket));
 
     DEBUG_LOG("PCAP-PACKET-PARSENEXT", "Reading packet header...");
 	//	Read packet specific header
 	if (fread(&packet->header, sizeof(PcapPacketHeader), 1, file->fd) != 1)
 	{
-		//	Reading failed / file is empty
-		ERR("Failed to read packet header...");
-		//	TODO: Check for error?
-		free(packet);
-		return NULL;
+		if (feof(file->fd))
+		{
+			// File is empty
+			*packet_out = NULL;
+			pcap_packet_destroy(packet);
+			return EXIT_SUCCESS;
+		}
+
+		//	Reading failed
+		ERR("Failed to read packet header...\n");
+		perror("fread");
+
+		*packet_out = NULL;
+		pcap_packet_destroy(packet);
+		return EXIT_FAILURE;
 	}
 
 	DEBUG_PRINT("packet->header.incl_len: %d\n", packet->header.incl_len);
@@ -170,14 +196,16 @@ PcapPacketPtr pcap_packet_parseNext(PcapFilePtr file)
 	if (fread(packet->data, sizeof(uint8_t), count, file->fd) != count)
 	{
 		//	Reading failed, report error & free memory
-		pcap_packet_destroy(packet);
-
-		ERR("Failed to read packet body...");
+		ERR("Failed to read packet body...\n");
 		perror("fread");
-		return NULL;
+
+		*packet_out = NULL;
+		pcap_packet_destroy(packet);
+		return EXIT_FAILURE;
 	}
 
-	return packet;
+	*packet_out = packet;
+	return EXIT_SUCCESS;
 }
 
 void pcap_packet_destroy(PcapPacketPtr packet)

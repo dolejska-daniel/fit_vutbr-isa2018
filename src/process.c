@@ -9,6 +9,7 @@
 #include <errno.h>
 #include <math.h>
 #include <sys/time.h>
+#include <assert.h>
 
 #include "process.h"
 #include "main.h"
@@ -35,6 +36,7 @@ int create_tcp_buffer()
 	tcp_buffer = malloc(TCP_BUFFER_SIZE);
 	if (tcp_buffer == NULL)
 	{
+		ERR("Failed to allocate memory for TCP packet buffer...\n");
 		perror("malloc");
 		return EXIT_FAILURE;
 	}
@@ -44,11 +46,17 @@ int create_tcp_buffer()
 
 void destroy_tcp_buffer()
 {
+	assert(tcp_buffer != NULL);
+
 	free(tcp_buffer);
+	tcp_buffer = NULL;
 }
 
 void push_tcp_data( TCPPacketPtr packet )
 {
+	assert(packet != NULL);
+	assert(tcp_buffer != NULL);
+
 	DEBUG_LOG("PUSH-TCP-DATA", "Pushing TCP packet data...");
 	if (tcp_packet_ended == 0 && tcp_packet_seq > 0 && packet->tcp_header->ack_seq != tcp_packet_seq)
 	{
@@ -80,12 +88,6 @@ void push_tcp_data( TCPPacketPtr packet )
 		size-= 2;
 		DEBUG_PRINT("\tsupposed_length: %u\n", tcp_dns_length);
 	}
-	else if (tcp_buffer_offset + size >= tcp_dns_length)
-	{
-		DEBUG_LOG("PUSH-TCP-DATA", "Current length is equal or exceeds supposed length, ending packet...");
-		DEBUG_PRINT("\tsupposed_length: %u\n\tactual_length: %u\n", tcp_dns_length, tcp_buffer_offset + size);
-		tcp_packet_ended = 1;
-	}
 
 	DEBUG_LOG("PUSH-TCP-DATA", "Inserting packet data...");
 	tcp_packet_seq = packet->tcp_header->ack_seq;
@@ -100,10 +102,19 @@ void push_tcp_data( TCPPacketPtr packet )
 
 	//  Move in buffer
 	tcp_buffer_offset+= size;
+	if (tcp_buffer_offset >= tcp_dns_length)
+	{
+		DEBUG_LOG("PUSH-TCP-DATA", "Current length is equal or exceeds supposed length, ending packet...");
+		DEBUG_PRINT("\tsupposed_length: %u\n\tactual_length: %u\n", tcp_dns_length, tcp_buffer_offset);
+		tcp_packet_ended = 1;
+	}
 }
 
 uint16_t pop_tcp_data( TCPPacketPtr packet )
 {
+	assert(packet != NULL);
+	assert(tcp_buffer != NULL);
+
 	DEBUG_LOG("POP-TCP-DATA", "Popping packet data...");
 	if (tcp_packet_ended == 0)
 	{
@@ -113,6 +124,7 @@ uint16_t pop_tcp_data( TCPPacketPtr packet )
 
 	DEBUG_LOG("PUSH-TCP-DATA", "Popping will proceed...");
 	packet->data->data = tcp_buffer;
+	packet->data->offset = 0;
 
 	uint16_t result = tcp_buffer_offset;
 	tcp_packet_ended = 0;
@@ -135,6 +147,8 @@ uint16_t pop_tcp_data( TCPPacketPtr packet )
  */
 int start_interface_listening( char *interface )
 {
+	assert(interface != NULL);
+
 	DEBUG_LOG("PROCESS", "Starting listening...");
 
 	DEBUG_LOG("PROCESS", "Creating RAW socket...");
@@ -188,6 +202,7 @@ int start_interface_listening( char *interface )
 
 	if (create_tcp_buffer() != EXIT_SUCCESS)
 	{
+		close(sock);
 		return EXIT_FAILURE;
 	}
 
@@ -221,26 +236,32 @@ int start_interface_listening( char *interface )
 		{
 			//	Something has been received
 			DEBUG_LOG("PROCESS", "Packet received...");
-			process_traffic(recv_data);
+			if (process_traffic(recv_data) != EXIT_SUCCESS)
+			{
+				close(sock);
+				destroy_tcp_buffer();
+				return EXIT_FAILURE;
+			}
 		}
 		else if (recv_bits < 0)
 			break;
 	}
 
 	send_statistics(1, 0);
+	close(sock);
 	destroy_tcp_buffer();
 	return EXIT_SUCCESS;
 }
 
 int start_file_processing( PcapFilePtr file )
 {
+	assert(file != NULL);
+
 	if (file->packet_count == 0)
 		return EXIT_SUCCESS;
 
 	if (create_tcp_buffer() != EXIT_SUCCESS)
-	{
 		return EXIT_FAILURE;
-	}
 
 	PcapPacketHeaderPtr header_last = &file->packets[0]->header;
 	for (uint32_t i = 0; i < file->packet_count; i++)
@@ -259,7 +280,10 @@ int start_file_processing( PcapFilePtr file )
 		}
 
 		if (process_traffic(packet->data) != EXIT_SUCCESS)
+		{
+			destroy_tcp_buffer();
 			return EXIT_FAILURE;
+		}
 	}
 
 	send_statistics(1, 0);
@@ -269,6 +293,9 @@ int start_file_processing( PcapFilePtr file )
 
 short receive_data( int sock, uint8_t *data )
 {
+	assert(sock < 0);
+	assert(data != NULL);
+
 	short recv_bits = 0;
 	memset(data, 0, BUFFER_SIZE);
 
@@ -299,6 +326,8 @@ short receive_data( int sock, uint8_t *data )
 
 int process_traffic( uint8_t *data )
 {
+	assert(data != NULL);
+
 	uint16_t L3_protocol = get_packet_L3_protocol(data);
 	if (L3_protocol != IPv4 && L3_protocol != IPv6)
 	{
@@ -315,7 +344,6 @@ int process_traffic( uint8_t *data )
 		TCPPacketPtr packet = parse_tcp_packet(data);
 		if (packet == NULL)
 		{
-			ERR("Failed to process packet, application is unable to continue and will now exit.\n");
 			//	TODO: Rather return than continue;?
 			return EXIT_FAILURE;
 		}
@@ -330,8 +358,7 @@ int process_traffic( uint8_t *data )
 			DNSPacketPtr dns = parse_dns_packet(packet->data);
 			if (dns == NULL)
 			{
-				ERR("Failed to process DNS packet, application is unable to continue and will now exit.\n");
-				//	TODO: Rather return than continue;?
+				destroy_tcp_packet(packet);
 				return EXIT_FAILURE;
 			}
 
@@ -355,7 +382,6 @@ int process_traffic( uint8_t *data )
 		UDPPacketPtr packet = parse_udp_packet(data);
 		if (packet == NULL)
 		{
-			ERR("Failed to process packet, application is unable to continue and will now exit.\n");
 			//	TODO: Rather return than continue;?
 			return EXIT_FAILURE;
 		}
@@ -368,8 +394,8 @@ int process_traffic( uint8_t *data )
 			DNSPacketPtr dns = parse_dns_packet(packet->data);
 			if (dns == NULL)
 			{
-				ERR("Failed to process DNS packet, application is unable to continue and will now exit.\n");
 				//	TODO: Rather return than continue;?
+				destroy_dns_packet(dns);
 				return EXIT_FAILURE;
 			}
 
@@ -404,17 +430,25 @@ void process_dns_traffic( DNSPacketPtr dns )
 {
 	for (int i = 0; i < dns->answer_count; i++)
 	{
-		process_dns_resource_record(dns->answers[i]);
+		if (process_dns_resource_record(dns->answers[i]) != EXIT_SUCCESS)
+		{
+			//	TODO: Fail?
+		}
 	}
 
-	for (int i = 0; i < dns->authority_count; i++)
+	for (int i = 0; i < dns->authority_count && DNS_PROCESS_AUTHORITIES; i++)
 	{
-		process_dns_resource_record(dns->authorities[i]);
+		if (process_dns_resource_record(dns->authorities[i]) != EXIT_SUCCESS)
+		{
+			//	TODO: Fail?
+		}
 	}
 }
 
-void process_dns_resource_record( DNSResourceRecordPtr record )
+int process_dns_resource_record( DNSResourceRecordPtr record )
 {
+	assert(entry_table != NULL);
+
 	char *type = translate_dns_type(record->record_type);
 	size_t entry_length = strlen(record->name) + 1 + strlen(type) + 1 + strlen(record->rdata); // +1s for whitespaces
 
@@ -426,11 +460,21 @@ void process_dns_resource_record( DNSResourceRecordPtr record )
 	    || record->record_type == DNS_TYPE_PTR)
 	{
 		entry = malloc(entry_length + 1); // +1 for '\0'
+		if (entry == NULL)
+		{
+			ERR("Failed to allocate memory for resource record table key...\n");
+			return EXIT_FAILURE;
+		}
 		sprintf(entry, "%s %s %s", record->name, type, record->rdata);
 	}
 	else
 	{
-		entry = malloc(entry_length + 1 + 2); // +1 for '\0', +2 for \"\"
+		entry = malloc(entry_length + 3); // +1 for '\0', +2 for \"\"
+		if (entry == NULL)
+		{
+			ERR("Failed to allocate memory for resource record table key...\n");
+			return EXIT_FAILURE;
+		}
 		sprintf(entry, "%s %s \"%s\"", record->name, type, record->rdata);
 	}
 
@@ -444,10 +488,14 @@ void process_dns_resource_record( DNSResourceRecordPtr record )
 	if (htIncrease(entry_table, entry) != ITEM_STATUS_CREATED)
 		//  Free entry for *UPDATED* item
 		free(entry);
+
+	return EXIT_SUCCESS;
 }
 
 void send_statistics( short clear_table, short force_print )
 {
+	assert(entry_table != NULL);
+
 	//  Send stats
 	DEBUG_LOG("PROCESS", "Sending statistics...");
 

@@ -25,7 +25,7 @@ PacketDataPtr create_packet_data(uint8_t *data, uint16_t offset)
     PacketDataPtr pdata = (PacketDataPtr) malloc(sizeof(PacketData));
     if (pdata == NULL)
     {
-		ERR("Failed to allocate memory for packet data holder...");
+		ERR("Failed to allocate memory for packet data holder...\n");
         perror("malloc");
         return NULL;
     }
@@ -65,7 +65,7 @@ TCPPacketPtr parse_tcp_packet( uint8_t *packet_data )
     TCPPacketPtr packet = (TCPPacketPtr) malloc(sizeof(TCPPacket));
     if (packet == NULL)
     {
-		ERR("Failed to allocate memory for TCP packet...");
+		ERR("Failed to allocate memory for TCP packet...\n");
         perror("malloc");
         return NULL;
     }
@@ -79,10 +79,6 @@ TCPPacketPtr parse_tcp_packet( uint8_t *packet_data )
     	destroy_tcp_packet(packet);
     	return NULL;
     }
-
-    //DEBUG_PRINT("\n\nPACKETDATA:\n%#x %#x %#x %#x %#x %#x %#x %#x\n",
-    //            get_packet_data(packet->data)[0], get_packet_data(packet->data)[1], get_packet_data(packet->data)[2], get_packet_data(packet->data)[3],
-    //            get_packet_data(packet->data)[4], get_packet_data(packet->data)[5], get_packet_data(packet->data)[6], get_packet_data(packet->data)[7]);
 
     return packet;
 }
@@ -108,7 +104,7 @@ UDPPacketPtr parse_udp_packet( uint8_t *packet_data )
     UDPPacketPtr packet = (UDPPacketPtr) malloc(sizeof(UDPPacket));
 	if (packet == NULL)
 	{
-		ERR("Failed to allocate memory for UDP packet...");
+		ERR("Failed to allocate memory for UDP packet...\n");
 		perror("malloc");
         return NULL;
 	}
@@ -157,11 +153,13 @@ uint16_t get_eth_header_size()
 
 void print_eth_header( const UDPPacketPtr packet )
 {
+	assert(packet != NULL);
     print_eth_header_struct(packet->eth_header);
 }
 
 void print_eth_header_struct( const struct ethhdr *eh )
 {
+	assert(eh != NULL);
 #ifdef DEBUG_PRINT_ENABLED
     fprintf(
             stderr, "ETH_HEADER (size: %u [+4 checksum]): {\n\th_source\t%02x:%02x:%02x:%02x:%02x:%02x\n\th_dest\t\t%02x:%02x:%02x:%02x:%02x:%02x\n\th_proto\t\t%#04x\n}\n",
@@ -413,6 +411,7 @@ void print_tcp_header_struct( const struct tcphdr *tcph, uint16_t size )
 unsigned short check_sum( unsigned short *buf, int nwords )
 {
 	assert(buf != NULL);
+
 	unsigned long sum;
 	for(sum=0; nwords>0; nwords--)
 		sum += *buf++;

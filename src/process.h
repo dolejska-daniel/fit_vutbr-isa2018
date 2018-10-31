@@ -100,8 +100,9 @@ void process_dns_traffic( DNSPacketPtr dns );
  * Zpracovani (ulozeni do tabulky) konkretniho resource record DNS odpovedi.
  *
  * @param record
+ * @return exit status code
  */
-void process_dns_resource_record( DNSResourceRecordPtr record );
+int process_dns_resource_record( DNSResourceRecordPtr record );
 
 /**
  * Odesle aktualni statistiky.

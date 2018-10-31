@@ -163,7 +163,7 @@ int main(int argc, char **argv)
 		syslog = init_syslog_sender(server);
 		if (syslog == NULL)
 		{
-			ERR("Failed to allocate and initialize syslog sender, application is unable to continue and will now exit.\n");
+			ERR("Application is unable to continue and will now exit.\n");
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -182,7 +182,7 @@ int main(int argc, char **argv)
 		PcapFilePtr file = pcap_file_open(filepath);
 		if (file == NULL)
 		{
-			ERR("Failed to open specified file, application is unable to continue and will now exit.\n");
+			ERR("Application is unable to continue and will now exit.\n");
 			exit(EXIT_FAILURE);
 		}
 

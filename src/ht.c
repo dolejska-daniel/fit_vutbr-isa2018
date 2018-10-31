@@ -5,6 +5,7 @@
 
 #include <string.h>
 #include <stdio.h>
+#include <assert.h>
 
 #include "ht.h"
 #include "macros.h"
@@ -14,6 +15,8 @@ unsigned int HTSIZE = MAX_HTSIZE;
 
 int hashCode ( tKey key )
 {
+	assert(key != NULL);
+
 	int retval = 1;
 	int keylen = strlen(key);
 	for ( int i = 0; i < keylen; i++ )
@@ -24,12 +27,17 @@ int hashCode ( tKey key )
 
 void htInit ( tHTable* ptrht )
 {
-    for(unsigned index = 0; index < HTSIZE; index++)
+	assert(ptrht != NULL);
+
+	for(unsigned index = 0; index < HTSIZE; index++)
         (*ptrht)[index] = NULL;
 }
 
 tHTItem* htSearch ( tHTable* ptrht, tKey key )
 {
+	assert(ptrht != NULL);
+	assert(key != NULL);
+
 	int hash = hashCode(key);
 	tHTItem *item = (*ptrht)[hash];
 
@@ -41,6 +49,9 @@ tHTItem* htSearch ( tHTable* ptrht, tKey key )
 
 void htInsert ( tHTable* ptrht, tKey key, tData data )
 {
+	assert(ptrht != NULL);
+	assert(key != NULL);
+
 	tHTItem* item = htSearch(ptrht, key);
 	if (item != NULL)
 	{
@@ -53,7 +64,7 @@ void htInsert ( tHTable* ptrht, tKey key, tData data )
 	item = malloc(sizeof(tHTItem));
 	if (item == NULL)
 	{
-		ERR("Failed to allocate memory for hash table item...");
+		ERR("Failed to allocate memory for hash table item...\n");
 		perror("malloc");
 		return;
 	}
@@ -66,6 +77,9 @@ void htInsert ( tHTable* ptrht, tKey key, tData data )
 
 tData* htRead ( tHTable* ptrht, tKey key )
 {
+	assert(ptrht != NULL);
+	assert(key != NULL);
+
 	tHTItem* item = htSearch(ptrht, key);
 	if (item != NULL)
 		return &(item->data);
@@ -75,6 +89,9 @@ tData* htRead ( tHTable* ptrht, tKey key )
 
 void htDelete ( tHTable* ptrht, tKey key )
 {
+	assert(ptrht != NULL);
+	assert(key != NULL);
+
 	int hash = hashCode(key);
 	tHTItem *prevItem = NULL;
 	tHTItem *item = (*ptrht)[hash];
@@ -104,6 +121,8 @@ void htDelete ( tHTable* ptrht, tKey key )
 
 void htClearAll ( tHTable* ptrht )
 {
+	assert(ptrht != NULL);
+
 	tHTItem *item;
 	tHTItem *nextItem;
 	for (unsigned index = 0; index < HTSIZE; index++)
@@ -122,6 +141,8 @@ void htClearAll ( tHTable* ptrht )
 
 void htWalk( tHTable* ptrht, void (*cb)(tKey, tData))
 {
+	assert(ptrht != NULL);
+
 	tHTItem *item;
 	for (unsigned index = 0; index < HTSIZE; index++)
 	{
@@ -136,6 +157,9 @@ void htWalk( tHTable* ptrht, void (*cb)(tKey, tData))
 
 unsigned int htIncrease( tHTable* ptrht, tKey key )
 {
+	assert(ptrht != NULL);
+	assert(key != NULL);
+
 	tHTItem *item = htSearch(ptrht, key);
 	if (item == NULL)
 	{
