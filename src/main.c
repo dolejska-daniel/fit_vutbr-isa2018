@@ -26,6 +26,7 @@ tHTable *entry_table;
 SyslogSenderPtr syslog;
 uint8_t flags = 0b00000000;
 long send_interval = 0;
+short keep_running = 1;
 
 
 /**
@@ -170,6 +171,8 @@ int main(int argc, char **argv)
 
 	//	Setup signal capture
 	signal(SIGUSR1, signal_handler);
+	signal(SIGINT, signal_handler);
+	signal(SIGQUIT, signal_handler);
 
 	if (IS_FLAG_ACTIVE(FLAG_INTERFACE))
 	{
@@ -208,6 +211,11 @@ void signal_handler( int signal )
 		case SIGUSR1:
 			DEBUG_LOG("MAIN", "Received SIGUSR1, printing current statistics...");
 			send_statistics(0, 1);
+			break;
+		case SIGINT:
+		case SIGQUIT:
+			DEBUG_LOG("MAIN", "Received SIGINT, gracefully stopping -- thank you...");
+			keep_running = 0;
 			break;
 		default:
 			DEBUG_LOG("MAIN", "Received signal...");

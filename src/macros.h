@@ -5,8 +5,6 @@
 #ifndef _MACROS_H
 #define _MACROS_H
 
-#define DEBUG_PRINT_ENABLED
-
 #ifdef DEBUG_PRINT_ENABLED
 #define DEBUG_PRINT(...) do{ fprintf( stderr, __VA_ARGS__ ); } while( 0 )
 #else

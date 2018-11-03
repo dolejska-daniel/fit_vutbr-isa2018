@@ -12,7 +12,7 @@
 
 
 #ifndef BUFFER_SIZE
-#define BUFFER_SIZE 1500 // send and receive buffer size in bits
+#define BUFFER_SIZE 1600 // send and receive buffer size in bits
 #endif
 
 #define FLAG_READ       7
@@ -25,6 +25,7 @@ extern tHTable *entry_table;
 extern SyslogSenderPtr syslog;
 extern uint8_t flags;
 extern long send_interval;
+extern short keep_running;
 
 
 #define FLAG_MASK(offset)       (1 << offset)

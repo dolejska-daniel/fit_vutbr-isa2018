@@ -17,9 +17,7 @@
 
 ### Překlad programu
 
-Pro překlad programu je použit CMake. K projektu je připojen i výchozí `Makefile`
-(vygenerovaný za pomoci CMake) - pro překlad tedy stačí jednoduchý příkaz `make`
-popřípadě pak `cmake ./ && cmake --build ./`.
+Pro překlad programu je použit CMake. Pro překlad tedy stačí příkaz `cmake ./ && cmake --build ./`.
 
 
 ### Spuštění programu
@@ -153,4 +151,3 @@ Součástí projektu jsou následující soubory:
 | Cesta k souboru       
 |-----------------------
 | `CMakeLists.txt`
-| `Makefile`

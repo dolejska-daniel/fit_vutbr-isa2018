@@ -699,7 +699,6 @@ DNSPacketPtr parse_dns_packet( PacketDataPtr pdata )
 	packet->authority_count  = ntohs(data->authority_count);
 	packet->additional_count = ntohs(data->additional_count);
 
-	//  UDP??
 	pdata->offset = get_dns_packet_head_size() - 4; // TODO: Kde se berou 4 bajty navíc??
 
 	DEBUG_PRINT("offset location pre queryparse: %s\n", get_packet_data_custom(pdata, pdata->offset));

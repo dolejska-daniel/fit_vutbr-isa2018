@@ -208,7 +208,7 @@ int start_interface_listening( char *interface )
 
 	DEBUG_LOG("PROCESS", "Listening for transmissions...");
 
-	while (1)
+	while (keep_running)
 	{
 		//  Initialize variables
 		short recv_bits = 0;
@@ -264,7 +264,7 @@ int start_file_processing( PcapFilePtr file )
 		return EXIT_FAILURE;
 
 	PcapPacketHeaderPtr header_last = &file->packets[0]->header;
-	for (uint32_t i = 0; i < file->packet_count; i++)
+	for (uint32_t i = 0; i < file->packet_count && keep_running; i++)
 	{
 		PcapPacketPtr packet = file->packets[i];
 
@@ -293,7 +293,6 @@ int start_file_processing( PcapFilePtr file )
 
 short receive_data( int sock, uint8_t *data )
 {
-	assert(sock < 0);
 	assert(data != NULL);
 
 	short recv_bits = 0;
