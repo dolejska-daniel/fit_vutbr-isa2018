@@ -44,8 +44,8 @@ int hostname_to_netaddress( const char *target_hostname, SocketAddressPtr addres
 	if ((he = gethostbyname(target_hostname)) == NULL)
 	{
 		//  An error occured
-		ERR("An error occured while translating server hostname...\n");
-		herror("gethostbyname");
+		//ERR("An error occured while translating server hostname...\n");
+		//herror("gethostbyname");
 		return EXIT_FAILURE;
 	}
 
@@ -72,17 +72,30 @@ int straddress_to_netaddress( const char *target_address, SocketAddressPtr addre
 		address->sin_family = AF_INET;
 		address->sin_port = htons(DNS_PORT);
 	}
-	else if (inet_pton(AF_INET6, target_address, &address->sin_addr))
-	{
-		//  target_address is valid IPv6 address
-		address->sin_family = AF_INET6;
-		address->sin_port = htons(DNS_PORT);
-	}
 	else
 	{
 		//  target_address is neither valid IPv4 nor IPv6 address
 		//  lets try using it as hostname
 		return hostname_to_netaddress(target_address, address);
+	}
+
+	return EXIT_SUCCESS;
+}
+
+int straddress_to_netaddress6( const char *target_address, SocketAddress6Ptr address )
+{
+	assert(target_address != NULL);
+	assert(address != NULL);
+
+	if (inet_pton(AF_INET6, target_address, &address->sin6_addr))
+	{
+		//  target_address is valid IPv6 address
+		address->sin6_family = AF_INET6;
+		address->sin6_port = htons(DNS_PORT);
+	}
+	else
+	{
+		return EXIT_FAILURE;
 	}
 
 	return EXIT_SUCCESS;

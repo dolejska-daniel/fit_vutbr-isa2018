@@ -23,6 +23,8 @@
 struct syslog_sender {
 	int             sock;   	///< Socket FD
 	SocketAddress   receiver;   ///< Adresa a nastaveni prijemce
+	SocketAddress6  receiver6;  ///< Adresa IPv6 a nastaveni prijemce
+	short  			v6;  		///< Pouzivat IPv6
 	char            sender_address[INET6_ADDRSTRLEN];  ///<
 	uint16_t        buffer_offset; ///< Offset bufferu pro vkladani zprav
 	char            buffer[MESSAGE_LEN_LIMIT + 1];  ///< Buffer zpravy

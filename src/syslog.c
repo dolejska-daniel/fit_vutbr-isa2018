@@ -33,9 +33,36 @@ SyslogSenderPtr init_syslog_sender( char *server )
 
 	if (straddress_to_netaddress(server, &sender->receiver) != EXIT_SUCCESS)
 	{
-		destroy_syslog_sender(sender);
-		return NULL;
+		//	IPv4 or hostname translation failed
+		if (straddress_to_netaddress6(server, &sender->receiver6) != EXIT_SUCCESS)
+		{
+			ERR("Failed to process...\n");
+			destroy_syslog_sender(sender);
+			return NULL;
+		}
+		//	IPv6 succeeded
+		sender->receiver6.sin6_port = htons(SYSLOG_PORT);
+		char ipv6[INET6_ADDRSTRLEN];
+		inet_ntop(AF_INET6, &sender->receiver6.sin6_addr, ipv6, INET6_ADDRSTRLEN);
+		DEBUG_PRINT("\tserver: [%s]:%d\n", ipv6, ntohs(sender->receiver6.sin6_port));
+
+		DEBUG_LOG("INIT-SYSLOG-SENDER", "Creating IPv6 socket...");
+		//  UDP IPv6 socket
+		if ((sender->sock = socket(sender->receiver6.sin6_family, SOCK_DGRAM, IPPROTO_UDP)) == -1)
+		{
+			ERR("Failed to open IPv6 socket for syslog sender...\n");
+			perror("socket");
+			destroy_syslog_sender(sender);
+			return NULL;
+		}
+		DEBUG_PRINT("\tsocket: %d\n", sender->sock);
+
+		sender->v6 = 1;
+		gethostname(sender->sender_address, INET6_ADDRSTRLEN);
+		DEBUG_PRINT("\thostname: %s\n", sender->sender_address);
+		return sender;
 	}
+	//	IPv4 or hostname succeeded
 	sender->receiver.sin_port = htons(SYSLOG_PORT);
 	DEBUG_PRINT("\tserver: %s:%d\n", inet_ntoa(sender->receiver.sin_addr), ntohs(sender->receiver.sin_port));
 
@@ -49,9 +76,9 @@ SyslogSenderPtr init_syslog_sender( char *server )
 		return NULL;
 	}
 
+	sender->v6 = 0;
 	gethostname(sender->sender_address, INET6_ADDRSTRLEN);
 	DEBUG_PRINT("\thostname: %s\n", sender->sender_address);
-
 	return sender;
 }
 
@@ -80,7 +107,7 @@ int send_syslog_message( SyslogSenderPtr sender, const char *message, int count 
 	);
 
 	free(timestamp);
-	if (strlen(sender->buffer) + strlen(syslog_message) > MESSAGE_LEN_LIMIT)
+	if (sender->buffer_offset + strlen(syslog_message) > MESSAGE_LEN_LIMIT)
 	{
 		//  There is not enough space in the buffer for this message
 		DEBUG_LOG("SEND-SYSLOG-MSG", "Buffer full, flushing first...");
@@ -107,12 +134,15 @@ int syslog_buffer_flush( SyslogSenderPtr sender )
 	*(sender->buffer + (--sender->buffer_offset) - 1) = '\0'; // terminate last message -> ignore LF and turn CR to '\0'
 
 	DEBUG_LOG("SYSLOG-BUFFER-FLUSH", "Sending packet...");
-	int status = (int) sendto(
-		sender->sock,
-		sender->buffer, sender->buffer_offset,
-		0,
-		(struct sockaddr *) &sender->receiver, sizeof(sender->receiver)
-	);
+	struct sockaddr *receiver = (struct sockaddr *) &sender->receiver;
+	unsigned size = sizeof(sender->receiver);
+	if (sender->v6 == 1)
+	{
+		receiver = (struct sockaddr *) &sender->receiver6;
+		size = sizeof(sender->receiver6);
+	}
+
+	int status = (int) sendto(sender->sock, sender->buffer, sender->buffer_offset, 0, receiver, size);
 	DEBUG_PRINT("\tjust sent: %d characters\n", status);
 	DEBUG_PRINT("\tbuffer: '%s'\n", sender->buffer);
 

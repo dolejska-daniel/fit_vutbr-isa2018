@@ -388,7 +388,7 @@ void print_tcp_header_struct( const struct tcphdr *tcph, uint16_t size )
 	assert(size != 0);
 #ifdef DEBUG_PRINT_ENABLED
 	fprintf(
-		stderr, "TCP_HEADER (size: %u): {\n\tsource\t%u\n\tdest\t%u\n\tcheck\t%#x\n\t%u\n\tack_seq\t%u\n\tFIN\t%#x\n\tSYN\t%#x\n\tACK\t%#x\n}\n",
+		stderr, "TCP_HEADER (size: %u): {\n\tsource\t%u\n\tdest\t%u\n\tcheck\t%#x\n\tack_seq\t%u\n\tFIN\t%#x\n\tSYN\t%#x\n\tACK\t%#x\n}\n",
 		size,
 		tcph->source,
 		tcph->dest,

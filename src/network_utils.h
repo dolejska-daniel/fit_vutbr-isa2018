@@ -54,9 +54,12 @@ uint16_t get_packet_L4_protocol( const uint8_t *packet );
 typedef struct sockaddr_in SocketAddress;
 typedef struct sockaddr_in *SocketAddressPtr;
 
+typedef struct sockaddr_in6 SocketAddress6;
+typedef struct sockaddr_in6 *SocketAddress6Ptr;
+
 /**
  * Zpracuje textovy hostname a do predpripravene struktury ulozi jeho IP adresu,
- * adresa muze byt IPv4 i IPv6.
+ * adresa muze byt pouze IPv4.
  *
  * @param target_hostname
  * @param address
@@ -65,7 +68,7 @@ typedef struct sockaddr_in *SocketAddressPtr;
 int hostname_to_netaddress( const char *target_hostname, SocketAddressPtr address );
 
 /**
- * Zpracuje poskytnutou IP adresu/hostname v textovem formatu, a ulozi jej
+ * Zpracuje poskytnutou IPv4 adresu/hostname v textovem formatu, a ulozi jej
  * v patricnem formatu do predpripravene struktury (nebude alokovana).
  *
  * @see hostname_to_netaddress
@@ -75,5 +78,17 @@ int hostname_to_netaddress( const char *target_hostname, SocketAddressPtr addres
  * @return exit status code
  */
 int straddress_to_netaddress( const char *target_address, SocketAddressPtr address );
+
+/**
+ * Zpracuje poskytnutou IPv6 adresu v textovem formatu, a ulozi jej
+ * v patricnem formatu do predpripravene struktury (nebude alokovana).
+ *
+ * @see hostname_to_netaddress
+ *
+ * @param target_address
+ * @param address
+ * @return exit status code
+ */
+int straddress_to_netaddress6( const char *target_address, SocketAddress6Ptr address );
 
 #endif //_NETWORK_UTILS_H

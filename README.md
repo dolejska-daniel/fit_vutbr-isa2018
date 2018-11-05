@@ -4,8 +4,9 @@
 
 ## Omezení projektu
 
-- Aplikace ve výpisech `NSEC` a `NSEC3` DNS záznamů nezobrazuje seznamy typů (Type Bit Maps).
 - Aplikace podporuje zpracovávání pouze následujících DNS záznamů: `A`, `AAAA`, `NS`, `PTR`, `CNAME`, `SRV`, `KX`, `MX`, `TA`, `DLV`, `DS`, `SOA`, `NSEC`, `NSEC3`, `RRSIG`, `DNSKEY`, `KEY`, `SPF` a `TXT`.
+- Při zpracování `NSEC` a `NSEC3` záznamů nejsou zobrazovány seznamy typů (Type Bit Maps) a některé další položky.
+- Aplikace nepodporuje překlad hostname syslog serveru na IPv6 (samotné IPv4 i IPv6 jsou podporovány)
 
 
 ## Rozšíření projektu
@@ -17,7 +18,9 @@
 
 ### Překlad programu
 
-Pro překlad programu je použit CMake. Pro překlad tedy stačí příkaz `cmake ./ && cmake --build ./`.
+Pro překlad programu může použit CMake, ale je přiložen i klasický Makefile.
+Překlad pomocí klasického Makefile (gcc) je proveden jednoduchým příkazem `make`.
+Pro překlad pomocí CMake stačí příkaz `cmake ./ && cmake --build ./`.
 
 
 ### Spuštění programu
