@@ -47,7 +47,7 @@ syslog.o:
 
 
 dns-export-debug: base64.od dns.od ht.od main.od network.od network_utils.od pcap.od process.od syslog.od
-	$(CC) $(CFLAGS_DEBUG) base64.od dns.od ht.od main.od network.od network_utils.od pcap.od process.od syslog.od -o $(COUT)
+	$(CC) $(CFLAGS_DEBUG) base64.o dns.o ht.o main.o network.o network_utils.o pcap.o process.o syslog.o -o $(COUT)
 
 main.od:
 	$(CC) $(CFLAGS_DEBUG) src/main.c -c
