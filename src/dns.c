@@ -417,7 +417,7 @@ int load_resource_record_data( PacketDataPtr pdata, DNSResourceRecordPtr record 
 				//  TODO: parse type bit maps?
 
 
-				record->rdata = malloc(2 * UINT8_STRLEN + UINT16_STRLEN + 3); //  +3 = +2 whitespace, +1 '\0'
+				record->rdata = malloc(2 * UINT8_STRLEN + UINT16_STRLEN + 3 + strlen(" *SALT* *HASHED_OWNER_NAME* *TYPES*")); //  +3 = +2 whitespace, +1 '\0'
 				if (record->rdata == NULL)
 				{
 					ERR("Failed to allocate memory for NSEC3 resource record data...");

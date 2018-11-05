@@ -129,12 +129,12 @@ Součástí projektu jsou následující soubory:
 | `src/dns.c`           | `src/dns.h`
 | `src/ht.c`            | `src/ht.h`
 | `src/main.c`          | `src/main.h`
-|                       | `src/macros.h` 
+|                       | `src/macros.h`
 | `src/network.c`       | `src/network.h`
 | `src/network_utils.c` | `src/network_utils.h`
 | `src/pcap.c`          | `src/pcap.h`
 | `src/process.c`       | `src/process.h`
-| `src/syslog.c`        | `src/syslog.h` 
+| `src/syslog.c`        | `src/syslog.h`
 
 **Soubory dokumentace**
 
@@ -144,10 +144,10 @@ Součástí projektu jsou následující soubory:
 | `doc/manual.tex`
 | `doc/zdroje.bib`
 | `dns-export.1`
-| `README.md` 
+| `README.md`
 
 **Další soubory**
 
 | Cesta k souboru       
 |-----------------------
-| `CMakeLists.txt`
+| `Makefile`
