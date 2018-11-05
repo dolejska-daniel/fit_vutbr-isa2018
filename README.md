@@ -63,7 +63,7 @@ uvedenými u jednotlivých packetů):
 ### Běh programu
 
 Kdykoliv za běhu programu je možné procesu odeslat signál `SIGUSR1`, který
-na standardní výstup vypíše statistiky provozu v rámci aktuálního časového intervalu.
+na standardní výstup vypíše statistiky provozu od spuštění programu.
 
 ```shell
 sudo kill -s USR1 $(ps -aux | grep [d]ns-export | awk '{ print $2 }')

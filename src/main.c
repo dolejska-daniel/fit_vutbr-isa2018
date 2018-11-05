@@ -23,6 +23,7 @@
 
 
 tHTable *entry_table;
+tHTable *entry_table_full;
 SyslogSenderPtr syslog;
 uint8_t flags = 0b00000000;
 long send_interval = 0;
@@ -159,6 +160,15 @@ int main(int argc, char **argv)
 	}
 	htInit(entry_table);
 
+	entry_table_full = malloc(HTSIZE * sizeof(tHTItem));
+	if (entry_table_full == NULL)
+	{
+		ERR("Failed to allocate hash table, application is unable to continue and will now exit.\n");
+		perror("malloc");
+		exit(EXIT_FAILURE);
+	}
+	htInit(entry_table_full);
+
 	if (IS_FLAG_ACTIVE(FLAG_SERVER))
 	{
 		syslog = init_syslog_sender(server);
@@ -200,6 +210,9 @@ int main(int argc, char **argv)
 	htClearAll(entry_table);
 	free(entry_table);
 
+	htClearAll(entry_table_full);
+	free(entry_table_full);
+
 	DEBUG_LOG("MAIN", "Exiting program...");
 	exit(status);
 }
@@ -210,7 +223,8 @@ void signal_handler( int signal )
 	{
 		case SIGUSR1:
 			DEBUG_LOG("MAIN", "Received SIGUSR1, printing current statistics...");
-			send_statistics(0, 1);
+			send_statistics(FULL_TABLE, 0, 1);
+			exit(0);
 			break;
 		case SIGINT:
 		case SIGQUIT:
@@ -230,7 +244,5 @@ void entry_sender( tKey key, tData data )
 
 void entry_printer( tKey key, tData data )
 {
-	fprintf(stdout, "%s %d\n",
-			key,
-			data);
+	fprintf(stdout, "%s %d\n", key, data);
 }

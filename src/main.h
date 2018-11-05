@@ -22,6 +22,7 @@
 
 
 extern tHTable *entry_table;
+extern tHTable *entry_table_full;
 extern SyslogSenderPtr syslog;
 extern uint8_t flags;
 extern long send_interval;

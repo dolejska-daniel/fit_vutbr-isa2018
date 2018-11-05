@@ -19,6 +19,7 @@
 #include "pcap.h"
 
 
+long seconds_since_start = 0;
 long send_interval_current = 0;
 uint8_t *tcp_buffer = 0;
 uint8_t tcp_packet_ended = 0;
@@ -222,11 +223,12 @@ int start_interface_listening( char *interface )
 		double ms_diff = (time_now.tv_sec - time_last.tv_sec) * 1000.0;
 		ms_diff+= (time_now.tv_usec - time_last.tv_usec) / 1000.0;
 		send_interval_current = (long) ms_diff / 1000;
+		seconds_since_start+= (long) ms_diff / 1000;
 
 		DEBUG_PRINT("ms_diff: %f\n", ms_diff);
 		if (ms_diff > send_interval_ms)
 		{
-			send_statistics(1, 0);
+			send_statistics(INTERVAL_TABLE, 1, 0);
 			time_last = time_now;
 			if (recv_bits == 0)
 				continue;
@@ -247,7 +249,7 @@ int start_interface_listening( char *interface )
 			break;
 	}
 
-	send_statistics(1, 0);
+	send_statistics(INTERVAL_TABLE, 1, 0);
 	close(sock);
 	destroy_tcp_buffer();
 	return EXIT_SUCCESS;
@@ -271,11 +273,12 @@ int start_file_processing( PcapFilePtr file )
 		//  Calculate time difference
 		double s_diff = (packet->header.ts_sec - header_last->ts_sec);
 		send_interval_current = (long) s_diff;
+		seconds_since_start+= (long) s_diff;
 
 		DEBUG_PRINT("s_diff: %f\n", s_diff);
 		if (s_diff > send_interval && IS_FLAG_ACTIVE(FLAG_TIME))
 		{
-			send_statistics(1, 0);
+			send_statistics(INTERVAL_TABLE, 1, 0);
 			header_last = &packet->header;
 		}
 
@@ -286,7 +289,7 @@ int start_file_processing( PcapFilePtr file )
 		}
 	}
 
-	send_statistics(1, 0);
+	send_statistics(INTERVAL_TABLE, 1, 0);
 	destroy_tcp_buffer();
 	return EXIT_SUCCESS;
 }
@@ -452,6 +455,7 @@ int process_dns_resource_record( DNSResourceRecordPtr record )
 	size_t entry_length = strlen(record->name) + 1 + strlen(type) + 1 + strlen(record->rdata); // +1s for whitespaces
 
 	char *entry;
+	char *entry_full;
 	if (record->record_type == DNS_TYPE_A
 	    || record->record_type == DNS_TYPE_AAAA
 	    || record->record_type == DNS_TYPE_NS
@@ -465,6 +469,14 @@ int process_dns_resource_record( DNSResourceRecordPtr record )
 			return EXIT_FAILURE;
 		}
 		sprintf(entry, "%s %s %s", record->name, type, record->rdata);
+
+		entry_full = malloc(entry_length + 1); // +1 for '\0'
+		if (entry_full == NULL)
+		{
+			ERR("Failed to allocate memory for resource record table key...\n");
+			return EXIT_FAILURE;
+		}
+		sprintf(entry_full, "%s %s %s", record->name, type, record->rdata);
 	}
 	else
 	{
@@ -475,6 +487,14 @@ int process_dns_resource_record( DNSResourceRecordPtr record )
 			return EXIT_FAILURE;
 		}
 		sprintf(entry, "%s %s \"%s\"", record->name, type, record->rdata);
+
+		entry_full = malloc(entry_length + 3); // +1 for '\0', +2 for \"\"
+		if (entry_full == NULL)
+		{
+			ERR("Failed to allocate memory for resource record table key...\n");
+			return EXIT_FAILURE;
+		}
+		sprintf(entry_full, "%s %s \"%s\"", record->name, type, record->rdata);
 	}
 
 	/*
@@ -488,12 +508,17 @@ int process_dns_resource_record( DNSResourceRecordPtr record )
 		//  Free entry for *UPDATED* item
 		free(entry);
 
+	//  Do not free created items, item key will be freed before cleaning the table
+	if (htIncrease(entry_table_full, entry_full) != ITEM_STATUS_CREATED)
+		//  Free entry for *UPDATED* item
+		free(entry_full);
+
 	return EXIT_SUCCESS;
 }
 
-void send_statistics( short clear_table, short force_print )
+void send_statistics( tHTable *source_table, short clear_table, short force_print )
 {
-	assert(entry_table != NULL);
+	assert(source_table != NULL);
 
 	//  Send stats
 	DEBUG_LOG("PROCESS", "Sending statistics...");
@@ -501,19 +526,27 @@ void send_statistics( short clear_table, short force_print )
 	//printf("\33[2K\r");
 	if (IS_FLAG_ACTIVE(FLAG_SERVER) && force_print == 0)
 	{
-		htWalk(entry_table, &entry_sender);
+		htWalk(source_table, &entry_sender);
 		syslog_buffer_flush(syslog);
 	}
 	else
 	{
-		fprintf(stdout, "=== DNS Traffic Statistics (last %ld minute(s) %ld second(s)) ===\n", send_interval_current / 60, send_interval_current % 60);
-		htWalk(entry_table, &entry_printer);
+		if (source_table == FULL_TABLE)
+		{
+			fprintf(stdout, "=== DNS Traffic Statistics (last %ld minute(s) %ld second(s)) ===\n", seconds_since_start / 60, seconds_since_start % 60);
+		}
+		else
+		{
+			fprintf(stdout, "=== DNS Traffic Statistics (last %ld minute(s) %ld second(s)) ===\n", send_interval_current / 60, send_interval_current % 60);
+		}
+
+		htWalk(source_table, &entry_printer);
 		fprintf(stdout, "\n");
 	}
 
 	if (clear_table == 1)
 	{
 		DEBUG_LOG("PROCESS", "Resetting table...");
-		htClearAll(entry_table);
+		htClearAll(source_table);
 	}
 }

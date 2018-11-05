@@ -6,12 +6,18 @@
 #define _PROCESS_H
 
 #include "stdint.h"
+#include "ht.h"
+#include "main.h"
 #include "dns.h"
 #include "pcap.h"
 
 #define TCP_BUFFER_SIZE 65535
 
+#define INTERVAL_TABLE	entry_table
+#define FULL_TABLE		entry_table_full
 
+
+extern long seconds_since_start;
 extern long send_interval_current;
 extern uint8_t *tcp_buffer;
 extern uint16_t tcp_buffer_offset;
@@ -107,10 +113,11 @@ int process_dns_resource_record( DNSResourceRecordPtr record );
 /**
  * Odesle aktualni statistiky.
  *
+ * @param source_table
  * @param clear_table
  * @param force_print
  */
-void send_statistics( short clear_table, short force_print );
+void send_statistics( tHTable *source_table, short clear_table, short force_print );
 
 
 #endif //_PROCESS_H
