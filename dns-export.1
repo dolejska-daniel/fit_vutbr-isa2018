@@ -12,6 +12,20 @@ dns-export \- creates aggregated statistics of DNS traffic
 [\fB\-t\fR \fIseconds\fR]
 
 
+.SH LIMITATIONS
+- application supports processing of the following DNS records only: \fBA\fR, \fBAAAA\fR, \fBNS\fR, \fBPTR\fR, \fBCNAME\fR,
+\fBSRV\fR, \fBKX\fR, \fBMX\fR, \fBTA\fR, \fBDLV\fR, \fBDS\fR, \fBSOA\fR, \fBNSEC\fR, \fBNSEC3\fR, \fBRRSIG\fR,
+\fBDNSKEY\fR, \fBKEY\fR, \fBSPF\fR, \fBTXT\fR
+
+- not all fields are processed in \fBNSEC\fR or \fBNSEC3\fR records
+
+- syslog hostname to IPv6 resolution is not supported (IPv4 and IPv6 alone \fBare\fR supported)
+
+
+.SH EXTENSIONS
+- application supports fragmented TCP responses
+
+
 .SH DESCRIPTION
 .B dns-export
 creates aggregated statistics of DNS traffic either from .pcap file or by
