@@ -81,4 +81,4 @@ clean:
 	rm *.o *.od $(COUT) -f -v 2>/dev/null
 
 pack:
-	tar -czvf xdolej08.tar src/* doc/manual.tex doc/zdroje.bib doc/manual.pdf dns-export.1 README.md Makefile
+	tar -cvf xdolej08.tar src/* doc/manual.tex doc/zdroje.bib doc/manual.pdf dns-export.1 README.md Makefile
